@@ -88,45 +88,6 @@ contract VestingManager is Ownable {
     }
 
     /**
-     * @notice Can be used to set up multiple vesting schedules at once for a group of accounts
-     * @dev Adds a new Schedule to the schedules mapping.
-     * @param accounts List of accounts a vesting schedule is being set up for
-     *                  Accounts will be able to claim tokens post-cliff period
-     * @param amount Array of the amount of tokens being vested for each user.
-     * @param asset The ERC20 asset being vested
-     * @param isFixed If true, the vesting schedule cannot be cancelled
-     * @param cliffWeeks Important parameter that determines how long the vesting cliff will be. During a cliff, no tokens can be claimed and vesting is paused
-     * @param vestingWeeks The number of weeks a token will be vested over (linear in this immplementation)
-     * @param startTime The start time for the vesting period
-     */
-    function multiVest(
-        address[] calldata accounts,
-        uint256[] calldata amount,
-        address asset,
-        bool isFixed,
-        uint256 cliffWeeks,
-        uint256 vestingWeeks,
-        uint256 startTime
-    ) external onlyOwner {
-        uint256 numberOfAccounts = accounts.length;
-        require(
-            amount.length == numberOfAccounts,
-            "Vesting: Array lengths differ"
-        );
-        for (uint256 i = 0; i < numberOfAccounts; i++) {
-            vest(
-                accounts[i],
-                amount[i],
-                asset,
-                isFixed,
-                cliffWeeks,
-                vestingWeeks,
-                startTime
-            );
-        }
-    }
-
-    /**
      * @notice Returns information about all vesting schedules for a given account
      * @param account The address of the account for which to return vesting schedule information
      * @return An array of ScheduleInfo structs, each containing the ID, cliff timestamp, and end timestamp for a vesting schedule (related to the account)
@@ -161,7 +122,7 @@ contract VestingManager is Ownable {
         require(schedule.totalAmount > 0, "Vesting: Token not claimable");
 
         // Get the amount to be distributed
-        uint256 amount = calcDistribution(
+        uint256 amount = calcVestingDistribution(
             schedule.totalAmount,
             block.timestamp,
             schedule.startTime,
@@ -185,7 +146,7 @@ contract VestingManager is Ownable {
      * @dev Any outstanding tokens are returned to the system.
      * @param account the account of the user whos vesting schedule is being cancelled.
      */
-    function rug(address account, uint256 scheduleId) external onlyOwner {
+    function cancelVesting(address account, uint256 scheduleId) external onlyOwner {
         Schedule storage schedule = schedules[account][scheduleId];
         require(!schedule.isFixed, "Vesting: Account is fixed");
         uint256 outstandingAmount = schedule.totalAmount -
@@ -208,7 +169,7 @@ contract VestingManager is Ownable {
      * @param startTime the timestamp this vesting schedule started.
      * @param endTime the timestamp this vesting schedule ends.
      */
-    function calcDistribution(
+    function calcVestingDistribution(
         uint256 amount,
         uint256 currentTime,
         uint256 startTime,
@@ -228,7 +189,7 @@ contract VestingManager is Ownable {
      * @notice Withdraws vesting tokens from the contract.
      * @dev blocks withdrawing locked tokens.
      */
-    function withdraw(uint256 amount, address asset) external onlyOwner {
+    function withdrawVestingTokens(uint256 amount, address asset) external onlyOwner {
         IERC20 token = IERC20(asset);
         require(
             token.balanceOf(address(this)) - locked[asset] >= amount,
