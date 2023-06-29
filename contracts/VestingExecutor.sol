@@ -5,6 +5,8 @@ pragma solidity >=0.4.23 <0.9.0;
 import "./VestingManager.sol";
 
 contract VestingExecutor is Ownable {
+    using SafeMath for uint256;
+
     // Deploy instance of the VestingManager contract
     VestingManager public vestingManager;
 
@@ -180,12 +182,6 @@ contract VestingExecutor is Ownable {
         vestingTokenPrice = _price;
     }
 
-    uint256 public vestingTokenDAIExchangeRate =
-        (vestingTokenPrice * vestingTokenDecimals) / DAIDecimals; // Adjusted rate
-
-    uint256 public vestingTokenUSDCExchangeRate =
-        (vestingTokenPrice * vestingTokenDecimals) / USDCDecimals; // Adjusted rate
-
     /* ========== Purchase and Vesting Functions ========== */
 
     function getVestingManagerAddress() public view returns (address) {
@@ -201,8 +197,8 @@ contract VestingExecutor is Ownable {
         );
 
         uint256 requiredAmount = (exchangeToken == address(DAI))
-            ? (vestingTokenPrice * vestingTokenDecimals) / DAIDecimals
-            : (vestingTokenPrice * vestingTokenDecimals) / USDCDecimals;
+            ? vestingTokenPrice.mul(vestingTokenDecimals).div(DAIDecimals)
+            : vestingTokenPrice.mul(vestingTokenDecimals).div(USDCDecimals);
 
         require(
             amount >= requiredAmount,
@@ -214,8 +210,7 @@ contract VestingExecutor is Ownable {
         token.transferFrom(msg.sender, TREASURY, amount);
 
         // Compute purchase amount of vesting token
-        uint256 purchaseAmount = (amount * vestingTokenDecimals) /
-            requiredAmount;
+        uint256 purchaseAmount = amount.mul(vestingTokenDecimals).div(requiredAmount);
         uint256 vestingAmount = purchaseAmount;
 
         // Check if there are enough vesting tokens in the VestingManager contract
@@ -226,10 +221,9 @@ contract VestingExecutor is Ownable {
         );
 
         if (purchaseAmount > purchaseAmountThreshold) {
-            uint256 amountToRelease = (purchaseAmount * releasePercentage) /
-                100; // Calculate amount to release
+            uint256 amountToRelease = purchaseAmount.mul(releasePercentage).div(100); // Calculate amount to release
             IERC20(vestingToken).transfer(msg.sender, amountToRelease);
-            vestingAmount = purchaseAmount - amountToRelease;
+            vestingAmount = purchaseAmount.sub(amountToRelease);
         }
 
         // Vest the tokens for the user

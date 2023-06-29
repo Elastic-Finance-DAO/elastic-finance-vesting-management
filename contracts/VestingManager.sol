@@ -5,6 +5,7 @@ pragma solidity >=0.4.23 <0.9.0;
 import "../interfaces/IVesting.sol";
 
 contract VestingManager is Ownable {
+
     //Contains information about the vesting schedule for accounts
     struct Schedule {
         uint256 totalAmount;
@@ -197,4 +198,7 @@ contract VestingManager is Ownable {
         );
         require(token.transfer(owner(), amount), "Vesting: withdraw failed");
     }
+
+//End of contract 
+
 }
