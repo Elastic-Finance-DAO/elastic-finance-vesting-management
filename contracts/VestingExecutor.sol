@@ -35,6 +35,13 @@ contract VestingExecutor is Ownable {
 
     uint256 public releasePercentage; // Percentage of total amount that will be released
 
+    address public authorizedSwapTokenAddress; //Token that can be swapped for vesting token (which will be vested on behalf of the user)
+
+    IERC20 public swapToken = IERC20(authorizedSwapTokenAddress);
+
+    uint256 public ratioNumerator; // Numeroator of ratio that will determine how many swap tokens can be exchanged for vesting tokens
+    uint256 public ratioDenominator; // Numerator of ratio that will determine how many swap tokens can be exchanged for vesting tokens
+
     VestingManager public vestingManager; // Vesting Manager contract
 
     /* ========== Structs ========== */
@@ -62,7 +69,7 @@ contract VestingExecutor is Ownable {
     /* ========== Events ========== */
 
     event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
-    event VestingParamsSet(
+    event vestingParamsSet(
         address asset,
         bool isFixed,
         uint256 cliffWeeks,
@@ -72,8 +79,9 @@ contract VestingExecutor is Ownable {
 
     event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
 
-    event TempLog(string data, uint256 number);
-    event TempLog2(string message);
+    event processLog(string description, uint256 number);
+    event processLog2(string message);
+    event processLog3(address address2);
 
     /* ========== Constructor ========== */
 
@@ -99,7 +107,17 @@ contract VestingExecutor is Ownable {
         token.transfer(to, amount);
     }
 
-    /* ========== Manage minting status ========== */
+    function transferERC20(
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        uint256 erc20balance = token.balanceOf(address(this));
+        require(amount <= erc20balance, "Balance too low to transfer token.");
+        token.transfer(to, amount);
+    }
+
+    /* ========== Manage vesting/swap status ========== */
 
     //Vesting status options
     enum vestingStatus {
@@ -129,15 +147,58 @@ contract VestingExecutor is Ownable {
         _;
     }
 
+    //Swapping status options
+    enum swappingStatus {
+        swappingActive, //0
+        swappingInactive //1
+    }
+
+    //Default vesting status: Inactive
+    swappingStatus public current_swapping_status =
+        swappingStatus.swappingInactive;
+
+    //Pause/unpause swapping
+    function setSwappingStatus(uint256 _value) public onlyOwner {
+        current_swapping_status = swappingStatus(_value);
+    }
+
+    //Get current contract swapping status
+    function getCurrentSwappingStatus() public view returns (swappingStatus) {
+        return current_swapping_status;
+    }
+
+    // Modifier to only allow swapping when swapping is active
+    modifier whenSwappingActive() {
+        require(
+            current_swapping_status == swappingStatus.swappingActive,
+            "Swapping is not active"
+        );
+        _;
+    }
+
     /* ========== Set Vesting Parameters ========== */
 
-    //Set address of vesting token
+    /**
+     * @notice Changes the address of the vesting token
+     * @dev Can only be executed by the owner of the contract
+     * @param _vestingTokenAddress The address of the new vesting token
+     */
     function setVestingTokenAddress(address _vestingTokenAddress)
         public
         onlyOwner
     {
         vestingTokenAddress = _vestingTokenAddress;
         vestingToken = IERC20(vestingTokenAddress);
+    }
+
+    /**
+     * @notice Changes the address of the swap token
+     * @dev Can only be executed by the owner of the contract
+     * @param _swapTokenAddress The address of the new swap token
+     */
+    function setSwapTokenAddress(address _swapTokenAddress) public onlyOwner {
+        authorizedSwapTokenAddress = _swapTokenAddress;
+        swapToken = IERC20(vestingTokenAddress);
     }
 
     /**
@@ -151,18 +212,22 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Sets the percentage of purchased vesting tokens to be instantly transferred to the user, if a user's purchase amount exceeds the threshold.
-     * @dev Allows the owner to set a certain percentage. The percentage is set as a whole number, i.e. for 25%, this would be set to 25. It should not exceed 100.
-     * @param _percentage The new percentage of purchased vesting tokens to be instantly transferred to the user, if the purchase amount exceeds the threshold.
+     * @notice Sets the swap ratio for the vesting to swap token conversion
+     * @dev Can only be executed by the owner of the contract
+     * @param _ratioNumerator The numerator part of the ratio
+     * @param _ratioDenominator The denominator part of the ratio
      */
-    function setReleasePercentage(uint256 _percentage) public onlyOwner {
-        require(_percentage <= 100, "Percentage cannot be more than 100");
-        releasePercentage = _percentage;
+    function setSwapRatio(uint256 _ratioNumerator, uint256 _ratioDenominator)
+        public
+        onlyOwner
+    {
+        ratioNumerator = _ratioNumerator;
+        ratioDenominator = _ratioDenominator;
     }
 
     /**
      * @notice Sets the vesting parameters globally. Should be re-set for each stage of vesting
-     * @dev This function allows the contract owner to set the parameters used for vesting.
+     * @dev This function allows the contract owner to set the parameters used for vesting. Can only be executed by the owner of the contract
      * @param _vestingParams A struct containing the vesting parameters. The struct should have
      *        the following structure:
      *        ```
@@ -179,10 +244,17 @@ contract VestingExecutor is Ownable {
         public
         onlyOwner
     {
+        // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
+        require(
+            _vestingParams.vestingWeeks > 0 &&
+                _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks,
+            "Vesting: invalid vesting params set"
+        );
+
         vestingParams = _vestingParams;
 
         // Emit the event after the vestingParams have been updated
-        emit VestingParamsSet(
+        emit vestingParamsSet(
             _vestingParams.asset,
             _vestingParams.isFixed,
             _vestingParams.cliffWeeks,
@@ -204,6 +276,16 @@ contract VestingExecutor is Ownable {
 
     /* ========== Purchase and Vesting Functions ========== */
 
+    /**
+     * @notice Allows user to purchase tokens with DAI or USDC, which are then vested.
+     * @dev Tokens being bought must be either DAI or USDC. Transfers funds from purchaser to Treasury. Only available when vesting is active.
+     * If the purchase amount meets the threshold, a portion of tokens is immediately released.
+     * The rest of the tokens are vested; if not enough tokens are available to vest the transaction will revert.
+     * @param _buyTokenAmount The amount of tokens being bought
+     * @param _vestingTokenPurchaseAmount The amount of vesting tokens to be purchased
+     * @param _exchangeToken The token used for the purchase, either DAI or USDC
+     * @param _vestingAsset The asset to be vested
+     */
     function purchaseVestingToken(
         uint256 _buyTokenAmount,
         uint256 _vestingTokenPurchaseAmount,
@@ -229,8 +311,8 @@ contract VestingExecutor is Ownable {
                 "Not enough DAI sent to exchange for vesting token"
             );
 
-            emit TempLog("Buy Token Amount", _buyTokenAmount);
-            emit TempLog("Required Amount", requiredAmount);
+            emit processLog("Buy Token Amount Calculated", _buyTokenAmount);
+            emit processLog("Required Amount Calculated", requiredAmount);
         } else {
             require(
                 _buyTokenAmount >= requiredAmount,
@@ -238,7 +320,7 @@ contract VestingExecutor is Ownable {
             );
         }
 
-        //Logic to determine if purchase amount meets threshold for immediate release of portion of vested tokens
+        //Logic to determine if purchase amount meets threshold for immediate release of portion of vested token asset
 
         uint256 vestingAmount;
         uint256 purchaseAmountCalc;
@@ -251,8 +333,7 @@ contract VestingExecutor is Ownable {
             purchaseAmountCalc = _buyTokenAmount.div(USDCDecimals);
         }
 
-        emit TempLog("Purchase Amount Threshold", purchaseAmountThreshold);
-        emit TempLog("Purchase Amount Calc", purchaseAmountCalc);
+        emit processLog("Purchase Amount Calculated", purchaseAmountCalc);
 
         //Transfer funds from purchaser to Treasury
 
@@ -269,11 +350,7 @@ contract VestingExecutor is Ownable {
                 .mul(releasePercentage)
                 .div(100);
 
-            emit TempLog(
-                "Vesting Token Purchase Amount",
-                _vestingTokenPurchaseAmount
-            );
-            emit TempLog("Amount to Release", amountToRelease);
+            emit processLog("Amount to Release Calculated", amountToRelease);
 
             // Withdraw amount from vesting contract and send to purchaser
 
@@ -289,24 +366,31 @@ contract VestingExecutor is Ownable {
             vestingAmount = _vestingTokenPurchaseAmount
                 .mul(vestingTokenDecimals)
                 .sub(amountToRelease.mul(vestingTokenDecimals));
-            emit TempLog("Vesting Amount", vestingAmount);
+            emit processLog("Vesting Amount Calculated", vestingAmount);
         }
 
-        // // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
-        // _vest(msg.sender, vestingAmount);
+        // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
+        _vest(msg.sender, vestingAmount);
 
-        // emit vestingTransactionComplete(msg.sender, vestingAmount);
+        emit vestingTransactionComplete(msg.sender, vestingAmount);
     }
 
-    function setUpVesting(address vestor, uint256 amount)
+    /**
+     * @notice Sets up a standard token vesting schedule for the provided vestor
+     * @dev Available only when vesting is active and only the owner can execute this function.
+     *      If not enough tokens are available to vest, the transaction will be reverted.
+     * @param vestor The address of the participant in the vesting process
+     * @param amount The amount of tokens to be vested for the participant
+     */
+    function standardVesting(address vestor, uint256 amount)
         public
         whenVestingActive
         onlyOwner
     {
         uint256 vestingAmount = amount;
-
-        // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
         _vest(vestor, vestingAmount);
+
+        emit vestingTransactionComplete(msg.sender, vestingAmount);
     }
 
     /**
@@ -328,8 +412,54 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Cancel a vesting schedule.
-     * @dev If the vesting schedule is cancellable, it transfers the outstanding tokens to the owner of the contract.
+     * @notice Swaps a specified amount of tokens for a corresponding amount of vesting tokens, then vests those tokens to a specified address.
+     * @dev Can only be called when swapping is active. Tokens to be swapped must be the authorized swap token.
+     * Swapped tokens are sent to the burn address.
+     * If not enough tokens are available to vest, the transaction will revert.
+     * @param vestor The address that will receive the vested tokens
+     * @param swapTokenAmount The amount of swap tokens to be swapped and burned
+     * @param tokenToSwap The token that is being swapped. Must be the authorized swap token.
+     */
+    function swapAndVest(
+        address vestor,
+        uint256 swapTokenAmount,
+        uint256 swapTokenDecimals,
+        address tokenToSwap
+    ) public whenSwappingActive {
+        emit processLog3(tokenToSwap);
+
+        require(
+            tokenToSwap == authorizedSwapTokenAddress,
+            "Token must be authorized swap token"
+        );
+
+        uint256 vestingAmount = swapTokenAmount.mul(ratioNumerator).div(ratioDenominator);
+
+        emit processLog("Vesting Amount Calculated", vestingAmount);
+
+        uint256 swapTokenAmountScaled = swapTokenAmount.mul(swapTokenDecimals);
+
+        IERC20(tokenToSwap).safeTransferFrom(
+            msg.sender,
+            address(this),
+            swapTokenAmountScaled
+        );
+
+        emit processLog("Swap Token Processed", swapTokenAmountScaled);
+
+        _vest(vestor, vestingAmount);
+
+        emit vestingTransactionComplete(msg.sender, vestingAmount);
+    }
+
+    //Claim vested tokens
+    function claimTokens(uint256 scheduleId, address vestor) external {
+        vestingManager.claim(scheduleId, vestor);
+    }
+
+    /**
+     * @notice Cancel an individual vesting schedule.
+     * @dev If the indiviudal vesting schedule is cancellable, it transfers the outstanding tokens to the VestingExecutor. Can only be called by the owner of the contract.
      * @param account The account to cancel vesting for.
      * @param scheduleId The id of the vesting schedule being canceled.
      */
@@ -342,7 +472,7 @@ contract VestingExecutor is Ownable {
 
     /**
      * @notice Withdraws vesting tokens from the VestingManager contract.
-     * @dev It only allows withdrawing tokens that are not locked in vesting.
+     * @dev It only allows withdrawing tokens that are not locked in vesting. Can only be called by owner.
      * @param amount The amount to withdraw.
      * @param asset The token to withdraw.
      */
@@ -358,7 +488,7 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Withdraws vesting tokens from the VestingManager contract.
+     * @notice Withdraws vesting tokens from the VestingManager contract (during token purchase transactions)
      * @dev It only allows withdrawing tokens that are not locked in vesting.
      * @param amount The amount to withdraw.
      * @param asset The token to withdraw.
@@ -371,6 +501,16 @@ contract VestingExecutor is Ownable {
         vestingManager.withdrawVestingTokens(amount, asset);
 
         _transferERC20(IERC20(asset), receipent, amount);
+    }
+
+    function retrieveScheduleInfo(address account)
+        public
+        view
+        returns (VestingManager.ScheduleInfo[] memory)
+    {
+        VestingManager.ScheduleInfo[] memory schedules = vestingManager
+            .getScheduleInfo(account);
+        return schedules;
     }
 
     //End of contract

@@ -8,7 +8,6 @@ import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
-
 /**
  * Vesting contract core functionality from standard Myceleium 
  (formerly Tracer DAO) vesting contract. Original source code 
@@ -18,6 +17,7 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
  */
 
 contract VestingManager is Ownable {
+
     /* ========== Structs ========== */
 
     /**
@@ -47,11 +47,13 @@ contract VestingManager is Ownable {
      * @param id Unique identifier for the vesting schedule.
      * @param cliffTime The timestamp at which the cliff period ends. No tokens can be claimed before the cliff.
      * @param endTime The timestamp at which the vesting schedule ends. All tokens can be claimed after endTime.
+     
      */
     struct ScheduleInfo {
         uint256 id;
         uint256 cliffTime;
         uint256 endTime;
+        uint256 totalAmount;
     }
 
     /* ========== Mappings ========== */
@@ -67,9 +69,21 @@ contract VestingManager is Ownable {
 
     /* ========== Events ========== */
 
-    event Claim(address indexed claimer, uint256 amount);
-    event Vest(address indexed to, uint256 amount);
-    event Cancelled(address account);
+    event vestingClaim(address indexed claimer, uint256 amount);
+    event vestingCancelled(uint256 scheduleID, address account);
+
+    event VestingScheduleCreated(
+        address indexed account,
+        uint256 indexed currentNumSchedules,
+        uint256 amount,
+        uint256 startTime,
+        uint256 cliffTime,
+        uint256 vestingTime,
+        bool isFixed,
+        address indexed asset
+    );
+
+    event processLog(string description, uint256 number);
 
     /* ========== Constructor ========== */
     // Owner will be set to VestingExecutor
@@ -99,15 +113,15 @@ contract VestingManager is Ownable {
         uint256 vestingWeeks,
         uint256 startTime
     ) public onlyOwner {
-        // ensure cliff is shorter than vesting
+        // ensure cliff is shorter than vesting (vesting includes the cliff duration)
         require(
             vestingWeeks > 0 && vestingWeeks >= cliffWeeks && amount > 0,
-            "Vesting: invalid vesting params"
+            "Vesting: invalid vesting params set"
         );
 
         uint256 currentLocked = locked[asset];
 
-        // require enough unlocked token is present to vest the desired amount 
+        // require enough unlocked token is present to vest the desired amount
         require(
             IERC20(asset).balanceOf(address(this)) >= currentLocked + amount,
             "Vesting: Not enough unlocked supply available to to vest desired amount of tokens"
@@ -128,7 +142,16 @@ contract VestingManager is Ownable {
         numberOfSchedules[account] = currentNumSchedules + 1; //Update number of schedules
         locked[asset] = currentLocked + amount; //Update amount of asset locked in vesting schedule
 
-        emit Vest(account, amount);
+        emit VestingScheduleCreated(
+            account,
+            currentNumSchedules,
+            amount,
+            startTime,
+            startTime + (cliffWeeks * 1 weeks),
+            startTime + (vestingWeeks * 1 weeks),
+            isFixed,
+            asset
+        );
     }
 
     /**
@@ -147,7 +170,9 @@ contract VestingManager is Ownable {
             scheduleInfoList[i] = ScheduleInfo(
                 i,
                 schedules[account][i].cliffTime,
-                schedules[account][i].endTime
+                schedules[account][i].endTime,
+                schedules[account][i].totalAmount
+
             );
         }
         return scheduleInfoList;
@@ -157,8 +182,8 @@ contract VestingManager is Ownable {
      * @notice Post-cliff period, users can claim their tokens
      * @param scheduleNumber which schedule the user is claiming against
      */
-    function claim(uint256 scheduleNumber) external {
-        Schedule storage schedule = schedules[msg.sender][scheduleNumber];
+    function claim(uint256 scheduleNumber, address vestor) external {
+        Schedule storage schedule = schedules[vestor][scheduleNumber];
         require(
             schedule.cliffTime <= block.timestamp,
             "Vesting: cliff not reached"
@@ -173,7 +198,7 @@ contract VestingManager is Ownable {
             schedule.endTime
         );
 
-        // Caps the claim amount to the total amount allocated to be vested to the address 
+        // Caps the claim amount to the total amount allocated to be vested to the address
         amount = amount > schedule.totalAmount ? schedule.totalAmount : amount;
         uint256 amountToTransfer = amount - schedule.claimedAmount;
         schedule.claimedAmount = amount; // set new claimed amount based off the curve
@@ -182,7 +207,7 @@ contract VestingManager is Ownable {
             IERC20(schedule.asset).transfer(msg.sender, amountToTransfer),
             "Vesting: transfer failed"
         );
-        emit Claim(msg.sender, amount);
+        emit vestingClaim(vestor, amount);
     }
 
     /**
@@ -206,7 +231,7 @@ contract VestingManager is Ownable {
             IERC20(schedule.asset).transfer(owner(), outstandingAmount),
             "Vesting: transfer failed"
         );
-        emit Cancelled(account);
+        emit vestingCancelled(scheduleId, account);
     }
 
     /**
