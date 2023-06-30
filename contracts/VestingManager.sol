@@ -1,12 +1,36 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 
-pragma solidity >=0.4.23 <0.9.0;
+pragma solidity 0.8.9;
 
-import "../interfaces/IVesting.sol";
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+
+
+/**
+ * Vesting contract core functionality from standard Myceleium 
+ (formerly Tracer DAO) vesting contract. Original source code 
+ available at: https://github.com/tracer-protocol/vesting/blob/master/contracts/Vesting.sol.
+
+ Vesting manager can vest multiple tokens and set up varied vesting schedules based on address. 
+ */
 
 contract VestingManager is Ownable {
+    /* ========== Structs ========== */
 
-    //Contains information about the vesting schedule for accounts
+    /**
+     * @dev Represents a vesting schedule for an account.
+     *
+     * @param totalAmount Total amount of tokens that will be vested.
+     * @param claimedAmount Amount of tokens that have already been claimed.
+     * @param startTime Unix timestamp for the start of the vesting schedule.
+     * @param cliffTime The timestamp at which the cliff period ends. No tokens can be claimed before the cliff.
+     * @param endTime The timestamp at which the vesting schedule ends. All tokens can be claimed after endTime.
+     * @param isFixed Flag indicating if the vesting schedule is fixed or can be modified.
+     * @param asset The address of the token being vested.
+     */
     struct Schedule {
         uint256 totalAmount;
         uint256 claimedAmount;
@@ -17,26 +41,43 @@ contract VestingManager is Ownable {
         address asset;
     }
 
-    //Contains information about a specific vesting schedule (by schedule ID)
+    /**
+     * @dev Represents a summary of a vesting schedule.
+     *
+     * @param id Unique identifier for the vesting schedule.
+     * @param cliffTime The timestamp at which the cliff period ends. No tokens can be claimed before the cliff.
+     * @param endTime The timestamp at which the vesting schedule ends. All tokens can be claimed after endTime.
+     */
     struct ScheduleInfo {
         uint256 id;
         uint256 cliffTime;
         uint256 endTime;
     }
 
+    /* ========== Mappings ========== */
+
     // Maps a user address to a schedule ID, which can be used to identify a vesting schedule
     mapping(address => mapping(uint256 => Schedule)) public schedules;
+
+    // Maps a user address to number of schedules created for the account
     mapping(address => uint256) public numberOfSchedules;
 
+    //Provides number of total tokens locked for a specific asset
     mapping(address => uint256) public locked;
+
+    /* ========== Events ========== */
 
     event Claim(address indexed claimer, uint256 amount);
     event Vest(address indexed to, uint256 amount);
     event Cancelled(address account);
 
+    /* ========== Constructor ========== */
+    // Owner will be set to VestingExecutor
     constructor(address initialOwner) {
         transferOwnership(initialOwner);
     }
+
+    /* ========== Vesting Functions ========== */
 
     /**
      * @notice Sets up a vesting schedule for a set user.
@@ -47,7 +88,7 @@ contract VestingManager is Ownable {
      * @param isFixed If true, the vesting schedule cannot be cancelled
      * @param cliffWeeks Important parameter that determines how long the vesting cliff will be. During a cliff, no tokens can be claimed and vesting is paused
      * @param vestingWeeks The number of weeks a token will be vested over (linear in this immplementation)
-     * @param startTime The start time for the vesting period
+     * @param startTime The start time for the vesting period ( in UNIX)
      */
     function vest(
         address account,
@@ -66,10 +107,10 @@ contract VestingManager is Ownable {
 
         uint256 currentLocked = locked[asset];
 
-        // require the token is present
+        // require enough unlocked token is present to vest the desired amount 
         require(
             IERC20(asset).balanceOf(address(this)) >= currentLocked + amount,
-            "Vesting: Not enough tokens"
+            "Vesting: Not enough unlocked supply available to to vest desired amount of tokens"
         );
 
         // create the schedule
@@ -83,8 +124,10 @@ contract VestingManager is Ownable {
             isFixed,
             asset
         );
-        numberOfSchedules[account] = currentNumSchedules + 1;
-        locked[asset] = currentLocked + amount;
+
+        numberOfSchedules[account] = currentNumSchedules + 1; //Update number of schedules
+        locked[asset] = currentLocked + amount; //Update amount of asset locked in vesting schedule
+
         emit Vest(account, amount);
     }
 
@@ -130,7 +173,7 @@ contract VestingManager is Ownable {
             schedule.endTime
         );
 
-        // Cap the amount at the total amount
+        // Caps the claim amount to the total amount allocated to be vested to the address 
         amount = amount > schedule.totalAmount ? schedule.totalAmount : amount;
         uint256 amountToTransfer = amount - schedule.claimedAmount;
         schedule.claimedAmount = amount; // set new claimed amount based off the curve
@@ -146,8 +189,12 @@ contract VestingManager is Ownable {
      * @notice Allows a vesting schedule to be cancelled.
      * @dev Any outstanding tokens are returned to the system.
      * @param account the account of the user whos vesting schedule is being cancelled.
+     * @param scheduleId the schedule ID of the vesting schedule being cancelled
      */
-    function cancelVesting(address account, uint256 scheduleId) external onlyOwner {
+    function cancelVesting(address account, uint256 scheduleId)
+        external
+        onlyOwner
+    {
         Schedule storage schedule = schedules[account][scheduleId];
         require(!schedule.isFixed, "Vesting: Account is fixed");
         uint256 outstandingAmount = schedule.totalAmount -
@@ -190,7 +237,10 @@ contract VestingManager is Ownable {
      * @notice Withdraws vesting tokens from the contract.
      * @dev blocks withdrawing locked tokens.
      */
-    function withdrawVestingTokens(uint256 amount, address asset) external onlyOwner {
+    function withdrawVestingTokens(uint256 amount, address asset)
+        external
+        onlyOwner
+    {
         IERC20 token = IERC20(asset);
         require(
             token.balanceOf(address(this)) - locked[asset] >= amount,
@@ -199,6 +249,5 @@ contract VestingManager is Ownable {
         require(token.transfer(owner(), amount), "Vesting: withdraw failed");
     }
 
-//End of contract 
-
+    //End of contract
 }

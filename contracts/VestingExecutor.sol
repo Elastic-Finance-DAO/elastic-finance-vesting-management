@@ -1,20 +1,17 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: GPL-3.0-only
 
-pragma solidity >=0.4.23 <0.9.0;
+pragma solidity 0.8.9;
 
 import "./VestingManager.sol";
 
 contract VestingExecutor is Ownable {
     using SafeMath for uint256;
-
-    // Deploy instance of the VestingManager contract
-    VestingManager public vestingManager;
+    using SafeERC20 for IERC20;
 
     /* ========== State Variables ========== */
 
-    //Treasury account
     address payable immutable TREASURY =
-        payable(0xa9f55E03FE7411501d06532111C92c58ebcA1D83);
+        payable(0xf950a86013bAA227009771181a885E369e158da3);
 
     IERC20 public immutable DAI =
         IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F);
@@ -22,22 +19,23 @@ contract VestingExecutor is Ownable {
     IERC20 public immutable USDC =
         IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48);
 
-    address payable vestingTokenAddress;
+    address vestingTokenAddress;
 
     IERC20 public vestingToken = IERC20(vestingTokenAddress);
 
-    uint256 public USDCtoVestingTokenExchangeRate;
-    uint256 public DAItoVestingTokenExchangeRate;
-
     uint256 public constant vestingTokenDecimals = 10**18;
+
     uint256 public constant USDCDecimals = 10**6;
+
     uint256 public constant DAIDecimals = 10**18;
 
     uint256 public vestingTokenPrice; // In USD
 
-    uint256 public purchaseAmountThreshold;
+    uint256 public purchaseAmountThreshold; // Amount of vesting token that must be purchased to trigger immediate release of coins
 
-    uint256 public releasePercentage;
+    uint256 public releasePercentage; // Percentage of total amount that will be released
+
+    VestingManager public vestingManager; // Vesting Manager contract
 
     /* ========== Structs ========== */
 
@@ -45,7 +43,7 @@ contract VestingExecutor is Ownable {
      * @notice Vesting parameters struct.
      * @dev This struct holds all necessary parameters for vesting.
      * @param asset The asset that the users are being vested.
-     * @param isFixed A flag indicating if these vesting schedules are fixed or not.
+     * @param isFixed If true, the vesting schedule cannot be cancelled
      * @param cliffWeeks The number of weeks that the cliff will be present at.
      * @param vestingWeeks The number of weeks the tokens will vest over (linearly).
      * @param startTime The timestamp for when this vesting should have started.
@@ -63,7 +61,19 @@ contract VestingExecutor is Ownable {
 
     /* ========== Events ========== */
 
-    event vestingOccured(uint256 vestingFee, address vestingRecipient);
+    event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
+    event VestingParamsSet(
+        address asset,
+        bool isFixed,
+        uint256 cliffWeeks,
+        uint256 vestingWeeks,
+        uint256 startTime
+    );
+
+    event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
+
+    event TempLog(string data, uint256 number);
+    event TempLog2(string message);
 
     /* ========== Constructor ========== */
 
@@ -91,17 +101,17 @@ contract VestingExecutor is Ownable {
 
     /* ========== Manage minting status ========== */
 
-    //Mint status options
+    //Vesting status options
     enum vestingStatus {
         vestingActive, //0
         vestingInactive //1
     }
 
-    //Default mint status: Active
+    //Default vesting status: Active
     vestingStatus public current_vesting_status = vestingStatus.vestingActive;
 
     //Pause/unpause vesting
-    function setMintStatus(uint256 _value) public onlyOwner {
+    function setVestingStatus(uint256 _value) public onlyOwner {
         current_vesting_status = vestingStatus(_value);
     }
 
@@ -122,11 +132,12 @@ contract VestingExecutor is Ownable {
     /* ========== Set Vesting Parameters ========== */
 
     //Set address of vesting token
-    function setVestingTokenAddress(address payable _vestingTokenAddress)
+    function setVestingTokenAddress(address _vestingTokenAddress)
         public
         onlyOwner
     {
         vestingTokenAddress = _vestingTokenAddress;
+        vestingToken = IERC20(vestingTokenAddress);
     }
 
     /**
@@ -150,14 +161,14 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Sets the vesting parameters.
+     * @notice Sets the vesting parameters globally. Should be re-set for each stage of vesting
      * @dev This function allows the contract owner to set the parameters used for vesting.
      * @param _vestingParams A struct containing the vesting parameters. The struct should have
      *        the following structure:
      *        ```
      *        {
      *          "asset": "<ADDRESS>", // The address of the token being vested
-     *          "isFixed": <BOOLEAN>, // A flag indicating if the vesting schedule is fixed
+     *          "isFixed": <BOOLEAN>, // A flag indicating if the vesting schedule is fixed (can be adjusted)
      *          "cliffWeeks": <NUMBER>, // The number of weeks for the cliff period
      *          "vestingWeeks": <NUMBER>, // The number of weeks over which the tokens will vest
      *          "startTime": <UNIX_TIMESTAMP> // The start timestamp for the vesting
@@ -169,6 +180,15 @@ contract VestingExecutor is Ownable {
         onlyOwner
     {
         vestingParams = _vestingParams;
+
+        // Emit the event after the vestingParams have been updated
+        emit VestingParamsSet(
+            _vestingParams.asset,
+            _vestingParams.isFixed,
+            _vestingParams.cliffWeeks,
+            _vestingParams.vestingWeeks,
+            _vestingParams.startTime
+        );
     }
 
     /* ========== Set Vesting Token Price and Exchange Rates ========== */
@@ -184,50 +204,109 @@ contract VestingExecutor is Ownable {
 
     /* ========== Purchase and Vesting Functions ========== */
 
-    function getVestingManagerAddress() public view returns (address) {
-        return address(vestingManager);
-    }
-
-    function purchaseVestingToken(uint256 amount, address exchangeToken)
-        public
-    {
+    function purchaseVestingToken(
+        uint256 _buyTokenAmount,
+        uint256 _vestingTokenPurchaseAmount,
+        address _exchangeToken,
+        address _vestingAsset
+    ) public payable whenVestingActive {
         require(
-            exchangeToken == address(DAI) || exchangeToken == address(USDC),
+            _exchangeToken == address(DAI) || _exchangeToken == address(USDC),
             "Exchange token must be DAI or USDC"
         );
 
-        uint256 requiredAmount = (exchangeToken == address(DAI))
-            ? vestingTokenPrice.mul(vestingTokenDecimals).div(DAIDecimals)
-            : vestingTokenPrice.mul(vestingTokenDecimals).div(USDCDecimals);
+        uint256 requiredAmount = (_exchangeToken == address(DAI))
+            ? vestingTokenPrice.mul(_vestingTokenPurchaseAmount).mul(
+                DAIDecimals
+            )
+            : vestingTokenPrice.mul(_vestingTokenPurchaseAmount).mul(
+                USDCDecimals
+            );
 
-        require(
-            amount >= requiredAmount,
-            "Not enough tokens sent to exchange for vesting token"
-        );
+        if (_exchangeToken == address(DAI)) {
+            require(
+                _buyTokenAmount >= requiredAmount,
+                "Not enough DAI sent to exchange for vesting token"
+            );
 
-        // Transfer exchangeToken from user to Treasury
-        IERC20 token = IERC20(exchangeToken);
-        token.transferFrom(msg.sender, TREASURY, amount);
-
-        // Compute purchase amount of vesting token
-        uint256 purchaseAmount = amount.mul(vestingTokenDecimals).div(requiredAmount);
-        uint256 vestingAmount = purchaseAmount;
-
-        // Check if there are enough vesting tokens in the VestingManager contract
-        require(
-            IERC20(vestingToken).balanceOf(address(vestingManager)) >=
-                purchaseAmount,
-            "Not enough vesting tokens available"
-        );
-
-        if (purchaseAmount > purchaseAmountThreshold) {
-            uint256 amountToRelease = purchaseAmount.mul(releasePercentage).div(100); // Calculate amount to release
-            IERC20(vestingToken).transfer(msg.sender, amountToRelease);
-            vestingAmount = purchaseAmount.sub(amountToRelease);
+            emit TempLog("Buy Token Amount", _buyTokenAmount);
+            emit TempLog("Required Amount", requiredAmount);
+        } else {
+            require(
+                _buyTokenAmount >= requiredAmount,
+                "Not enough USDC sent to exchange for vesting token"
+            );
         }
 
-        // Vest the tokens for the user
-        _vest(msg.sender, vestingAmount);
+        //Logic to determine if purchase amount meets threshold for immediate release of portion of vested tokens
+
+        uint256 vestingAmount;
+        uint256 purchaseAmountCalc;
+
+        // Calculate amount to release immediately to the purchaser
+
+        if (_exchangeToken == address(DAI)) {
+            purchaseAmountCalc = _buyTokenAmount.div(DAIDecimals);
+        } else {
+            purchaseAmountCalc = _buyTokenAmount.div(USDCDecimals);
+        }
+
+        emit TempLog("Purchase Amount Threshold", purchaseAmountThreshold);
+        emit TempLog("Purchase Amount Calc", purchaseAmountCalc);
+
+        //Transfer funds from purchaser to Treasury
+
+        IERC20(_exchangeToken).safeTransferFrom(
+            msg.sender,
+            TREASURY,
+            _buyTokenAmount
+        );
+
+        // Complete vesting operations
+
+        if (purchaseAmountCalc >= purchaseAmountThreshold) {
+            uint256 amountToRelease = _vestingTokenPurchaseAmount
+                .mul(releasePercentage)
+                .div(100);
+
+            emit TempLog(
+                "Vesting Token Purchase Amount",
+                _vestingTokenPurchaseAmount
+            );
+            emit TempLog("Amount to Release", amountToRelease);
+
+            // Withdraw amount from vesting contract and send to purchaser
+
+            if (amountToRelease > 0) {
+                _withdrawBonusTokens(
+                    amountToRelease.mul(vestingTokenDecimals),
+                    _vestingAsset,
+                    msg.sender
+                );
+            }
+
+            // Calculate the remaining amount to vest
+            vestingAmount = _vestingTokenPurchaseAmount
+                .mul(vestingTokenDecimals)
+                .sub(amountToRelease.mul(vestingTokenDecimals));
+            emit TempLog("Vesting Amount", vestingAmount);
+        }
+
+        // // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
+        // _vest(msg.sender, vestingAmount);
+
+        // emit vestingTransactionComplete(msg.sender, vestingAmount);
+    }
+
+    function setUpVesting(address vestor, uint256 amount)
+        public
+        whenVestingActive
+        onlyOwner
+    {
+        uint256 vestingAmount = amount;
+
+        // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
+        _vest(vestor, vestingAmount);
     }
 
     /**
@@ -236,7 +315,7 @@ contract VestingExecutor is Ownable {
      * @param amount The amount of tokens being vested for the user.
      */
 
-    function _vest(address account, uint256 amount) internal whenVestingActive {
+    function _vest(address account, uint256 amount) internal {
         vestingManager.vest(
             account,
             amount,
@@ -252,7 +331,7 @@ contract VestingExecutor is Ownable {
      * @notice Cancel a vesting schedule.
      * @dev If the vesting schedule is cancellable, it transfers the outstanding tokens to the owner of the contract.
      * @param account The account to cancel vesting for.
-     * @param scheduleId The id of the vesting schedule.
+     * @param scheduleId The id of the vesting schedule being canceled.
      */
     function cancelVesting(address account, uint256 scheduleId)
         external
@@ -265,13 +344,33 @@ contract VestingExecutor is Ownable {
      * @notice Withdraws vesting tokens from the VestingManager contract.
      * @dev It only allows withdrawing tokens that are not locked in vesting.
      * @param amount The amount to withdraw.
-     * @param asset The token contract address to withdraw from.
+     * @param asset The token to withdraw.
      */
     function withdrawVestingTokens(uint256 amount, address asset)
         external
         onlyOwner
     {
         vestingManager.withdrawVestingTokens(amount, asset);
+
+        _transferERC20(IERC20(asset), owner(), amount);
+
+        emit vestingTokenWithdrawal(asset, amount);
+    }
+
+    /**
+     * @notice Withdraws vesting tokens from the VestingManager contract.
+     * @dev It only allows withdrawing tokens that are not locked in vesting.
+     * @param amount The amount to withdraw.
+     * @param asset The token to withdraw.
+     */
+    function _withdrawBonusTokens(
+        uint256 amount,
+        address asset,
+        address receipent
+    ) internal {
+        vestingManager.withdrawVestingTokens(amount, asset);
+
+        _transferERC20(IERC20(asset), receipent, amount);
     }
 
     //End of contract
