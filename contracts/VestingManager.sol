@@ -9,15 +9,15 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
- * Vesting contract core functionality from standard Myceleium 
- (formerly Tracer DAO) vesting contract. Original source code 
+ * Vesting contract core functionality based on standard Myceleium 
+ (formerly Tracer DAO) vesting contract. Source code 
  available at: https://github.com/tracer-protocol/vesting/blob/master/contracts/Vesting.sol.
 
- Vesting manager can vest multiple tokens and set up varied vesting schedules based on address. 
+ Vesting manager can vest multiple tokens.
+ An address can have multiple vesting schedules for multiple assets. 
  */
 
 contract VestingManager is Ownable {
-
     /* ========== Structs ========== */
 
     /**
@@ -86,9 +86,47 @@ contract VestingManager is Ownable {
     event processLog(string description, uint256 number);
 
     /* ========== Constructor ========== */
-    // Owner will be set to VestingExecutor
+    // Owner will be set to VestingExecutor contract
     constructor(address initialOwner) {
         transferOwnership(initialOwner);
+    }
+
+    /* ========== Views ========== */
+
+    /**
+    * @notice Fetches locked amount of a specific asset.
+    * @param _assetAddress The address of the asset.
+    * @return The amount of the asset currently locked.
+    */
+    function getLockedAmount(address _assetAddress)
+        public
+        view
+        returns (uint256)
+    {
+        return locked[_assetAddress];
+    }
+
+    /**
+     * @notice Returns information about all vesting schedules for a given account
+     * @param account The address of the account for which to return vesting schedule information
+     * @return An array of ScheduleInfo structs, each containing the ID, cliff timestamp, and end timestamp for a vesting schedule (related to the account)
+     */
+    function getScheduleInfo(address account)
+        public
+        view
+        returns (ScheduleInfo[] memory)
+    {
+        uint256 count = numberOfSchedules[account];
+        ScheduleInfo[] memory scheduleInfoList = new ScheduleInfo[](count);
+        for (uint256 i = 0; i < count; i++) {
+            scheduleInfoList[i] = ScheduleInfo(
+                i,
+                schedules[account][i].cliffTime,
+                schedules[account][i].endTime,
+                schedules[account][i].totalAmount
+            );
+        }
+        return scheduleInfoList;
     }
 
     /* ========== Vesting Functions ========== */
@@ -124,7 +162,7 @@ contract VestingManager is Ownable {
         // require enough unlocked token is present to vest the desired amount
         require(
             IERC20(asset).balanceOf(address(this)) >= currentLocked + amount,
-            "Vesting: Not enough unlocked supply available to to vest desired amount of tokens"
+            "Vesting: Not enough unlocked supply available to to vest"
         );
 
         // create the schedule
@@ -152,30 +190,6 @@ contract VestingManager is Ownable {
             isFixed,
             asset
         );
-    }
-
-    /**
-     * @notice Returns information about all vesting schedules for a given account
-     * @param account The address of the account for which to return vesting schedule information
-     * @return An array of ScheduleInfo structs, each containing the ID, cliff timestamp, and end timestamp for a vesting schedule (related to the account)
-     */
-    function getScheduleInfo(address account)
-        public
-        view
-        returns (ScheduleInfo[] memory)
-    {
-        uint256 count = numberOfSchedules[account];
-        ScheduleInfo[] memory scheduleInfoList = new ScheduleInfo[](count);
-        for (uint256 i = 0; i < count; i++) {
-            scheduleInfoList[i] = ScheduleInfo(
-                i,
-                schedules[account][i].cliffTime,
-                schedules[account][i].endTime,
-                schedules[account][i].totalAmount
-
-            );
-        }
-        return scheduleInfoList;
     }
 
     /**
@@ -211,7 +225,7 @@ contract VestingManager is Ownable {
     }
 
     /**
-     * @notice Allows a vesting schedule to be cancelled.
+     * @notice Allows an individual vesting schedule to be cancelled.
      * @dev Any outstanding tokens are returned to the system.
      * @param account the account of the user whos vesting schedule is being cancelled.
      * @param scheduleId the schedule ID of the vesting schedule being cancelled
