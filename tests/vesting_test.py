@@ -93,569 +93,546 @@ def isolation(fn_isolation):
 ##### ----- Tests   ----- #####
 ####################################################################################
 
-# ##### ----- Asset Deposits and Balances  ----- #####
+##### ----- Asset Deposits and Balances  ----- #####
 
-# #Contract does not accept ETH deposits
-# def test_transfer_eth_into_vesting_manager_contract(vesting_manager, capsys):
-#     # Contract does not accept ETH, so it should fail
+#Contract does not accept ETH deposits
+def test_transfer_eth_into_vesting_manager_contract(vesting_manager, capsys):
+    # Contract does not accept ETH, so it should fail
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     with brownie.reverts():
-#         transfer_ETH_into_contract = accounts[0].transfer(
-#             vesting_manager_address, "1 ether"
-#         )
+    with brownie.reverts():
+        transfer_ETH_into_contract = accounts[0].transfer(
+            vesting_manager_address, "1 ether"
+        )
 
-#     with capsys.disabled():
-#         print("Contract does not accept ETH, so it should fail")
+    with capsys.disabled():
+        print("Contract does not accept ETH, so it should fail")
 
-# #Ensure Vesting Manger contract is deployed properly can can accept vesting asset
-# def test_check_balance_of_vesting_manager_eefi(vesting_manager, main, capsys):
-#     vesting_executor = main
+#Ensure Vesting Manger contract is deployed properly can can accept vesting asset
+def test_check_balance_of_vesting_manager_eefi(vesting_manager, main, capsys):
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     eefi_approval = 500000 * 10**18
+    eefi_approval = 500000 * 10**18
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     assert (
-#         contract_eefi_balance == transfer_amount
-#     ), "tokens not successfully transfered"
+    assert (
+        contract_eefi_balance == transfer_amount
+    ), "tokens not successfully transfered"
 
-#     with capsys.disabled():
-#         print("Balance should be 5000 EEFI")
-#         print(contract_eefi_balance)
+    with capsys.disabled():
+        print("Balance should be 5000 EEFI")
+        print(contract_eefi_balance)
 
-# ##### ----- Contract Status: Vesting, Staking  ----- #####
+##### ----- Contract Status: Vesting, Staking  ----- #####
 
-# #Vesting status is pausable
-# def test_reset_vesting_status(main, capsys):
-#     ## Test Setup ##
+#Vesting status is pausable
+def test_reset_vesting_status(main, capsys):
+    ## Test Setup ##
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     testing_status = 1  # Inactive
+    testing_status = 1  # Inactive
 
-#     vesting_executor.setVestingStatus(testing_status, {"from": accounts[1]})  # Set status
+    vesting_executor.setVestingStatus(testing_status, {"from": accounts[1]})  # Set status
 
-#     vesting_status = vesting_executor.getCurrentVestingStatus()  # Check status
+    vesting_status = vesting_executor.getCurrentVestingStatus()  # Check status
 
-#     assert vesting_status == 1, "vestings status not updated"
+    assert vesting_status == 1, "vestings status not updated"
 
-#     with capsys.disabled():
-#         print("Vesting status should be 1 (inactive)")
-#         print(vesting_status)
+    with capsys.disabled():
+        print("Vesting status should be 1 (inactive)")
+        print(vesting_status)
 
-# ##### ----- Thresholds, Ratios and Asset Pricing ----- #####
+##### ----- Thresholds, Ratios and Asset Pricing ----- #####
 
-# #Purchase amount threshold to trigger immediate release of portion of vesting tokens
-# def test_set_purchase_amount_threshold(main, capsys):
-#     ## Test Setup ##
+#Purchase amount threshold to trigger immediate release of portion of vesting tokens
+def test_set_purchase_amount_threshold(main, capsys):
+    ## Test Setup ##
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     purchase_amount_threshold = 5000
+    purchase_amount_threshold = 5000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     purchase_amount_threshold_contract = (
-#         vesting_executor.purchaseAmountThreshold()
-#     )  # Check threshold
+    purchase_amount_threshold_contract = (
+        vesting_executor.purchaseAmountThreshold()
+    )  # Check threshold
 
-#     assert purchase_amount_threshold == purchase_amount_threshold_contract
+    assert purchase_amount_threshold == purchase_amount_threshold_contract
 
-#     with capsys.disabled():
-#         print("Purchase amount threshold should be 3500")
-#         print(purchase_amount_threshold_contract)
+    with capsys.disabled():
+        print("Purchase amount threshold should be 3500")
+        print(purchase_amount_threshold_contract)
 
-# #Percentage of vesting tokens to be released
-# def test_setting_release_percentage(main, capsys):
-#     ## Test Setup ##
+#Percentage of vesting tokens to be released
+def test_setting_release_percentage(main, capsys):
+    ## Test Setup ##
 
-#     vesting_executor = main
-#     ## Test Actions ##
+    vesting_executor = main
+    ## Test Actions ##
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set percentage
 
-#     release_percentage_threshold_contract = (
-#         vesting_executor.releasePercentage()
-#     )  # Check percentage
+    release_percentage_threshold_contract = (
+        vesting_executor.releasePercentage()
+    )  # Check percentage
 
-#     assert (
-#         release_percentage == release_percentage_threshold_contract
-#     ), "release percentage not set"
+    assert (
+        release_percentage == release_percentage_threshold_contract
+    ), "release percentage not set"
 
-#     with capsys.disabled():
-#         print("Release percentage should be 2")
-#         print(release_percentage_threshold_contract)
+    with capsys.disabled():
+        print("Release percentage should be 2")
+        print(release_percentage_threshold_contract)
 
-# #USD purchase price of vesting token
-# def test__setting_vesting_token_price(main, capsys):
-#     ## Test Setup ##
 
-#     vesting_executor = main
+##### ----- Vesting Asset Withdrawal  ----- #####
 
-#     ## Test Actions ##
+#Withdraw unlocked, vested assets from contract (multisig only)
+def test_vesting_token_withdrawal(vesting_manager, main, capsys):
+    # # Contracts #
 
-#     vesting_token_price = 12
+    vesting_executor = main
 
-#     vesting_executor.setVestingTokenPrice(
-#         vesting_token_price, {"from": accounts[1]}
-#     )  # Set price
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_token_price_contract = vesting_executor.vestingTokenPrice()  # Check price
+    vesting_executor_address = vesting_executor.address
 
-#     assert (
-#         vesting_token_price == vesting_token_price_contract
-#     ), "Vesting token price mis-match"
+    vesting_manager_address = vesting_manager
 
-#     with capsys.disabled():
-#         print("Vesting token price should be 12")
-#         print(vesting_token_price_contract)
+    # Transfer EEFI #
 
-# ##### ----- Vesting Asset Withdrawal  ----- #####
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-# #Withdraw unlocked, vested assets from contract (multisig only)
-# def test_vesting_token_withdrawal(vesting_manager, main, capsys):
-#     # # Contracts #
+    transfer_amount = 5000 * 10**18
 
-#     vesting_executor = main
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     vesting_executor_address = vesting_executor.address
+    withdraw_amount = 200 * 10**18
 
-#     vesting_manager_address = vesting_manager
+    ## Test Actions ##
 
-#     # Transfer EEFI #
+    withdrawal_tx = vesting_executor.withdrawVestingTokens(
+        withdraw_amount, eefi_contract.address, {"from": eefi_whale}
+    )
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_balance_of_wallet = eefi_contract.balanceOf(accounts[1])
 
-#     transfer_amount = 5000 * 10**18
+    assert withdraw_amount == eefi_balance_of_wallet, "Withdrawal amount mismatch"
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    with capsys.disabled():
+        print("Wallet EEFI balance should be 200")
+        print("Wallet balance:", eefi_balance_of_wallet / 10**18)
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     withdraw_amount = 200 * 10**18
+##### ----- Access Control ----- #####
 
-#     ## Test Actions ##
+#Non-multisig address can't withdraw unlocked vested assets
+def test_vesting_token_withdrawal_no_multisig(vesting_manager, main, capsys):
+    # # Contracts #
 
-#     withdrawal_tx = vesting_executor.withdrawVestingTokens(
-#         withdraw_amount, eefi_contract.address, {"from": eefi_whale}
-#     )
+    vesting_executor = main
 
-#     eefi_balance_of_wallet = eefi_contract.balanceOf(accounts[1])
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     assert withdraw_amount == eefi_balance_of_wallet, "Withdrawal amount mismatch"
+    vesting_executor_address = vesting_executor.address
 
-#     with capsys.disabled():
-#         print("Wallet EEFI balance should be 200")
-#         print("Wallet balance:", eefi_balance_of_wallet / 10**18)
+    vesting_manager_address = vesting_manager
 
+    # Transfer EEFI #
 
-# ##### ----- Access Control ----- #####
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-# #Non-multisig address can't withdraw unlocked vested assets
-# def test_vesting_token_withdrawal_no_multisig(vesting_manager, main, capsys):
-#     # # Contracts #
+    transfer_amount = 5000 * 10**18
 
-#     vesting_executor = main
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     vesting_executor_address = vesting_executor.address
+    withdraw_amount = 200 * 10**18
 
-#     vesting_manager_address = vesting_manager
+    ## Test Actions ##
 
-#     # Transfer EEFI #
+    with brownie.reverts():
+        withdrawal_tx = vesting_executor.withdrawVestingTokens(
+            withdraw_amount, eefi_contract.address, {"from": accounts[1]}
+        )
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    with capsys.disabled():
+        print("Tx should fail because sender not from multisig")
 
-#     transfer_amount = 5000 * 10**18
+#Non-multisig address can't cancel individual vesting schedule
+def test_vesting_cancellation_not_multisig(vesting_manager, main, capsys, chain):
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    # ## Test Setup ##
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    # Contracts #
 
-#     withdraw_amount = 200 * 10**18
+    vesting_executor = main
 
-#     ## Test Actions ##
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     with brownie.reverts():
-#         withdrawal_tx = vesting_executor.withdrawVestingTokens(
-#             withdraw_amount, eefi_contract.address, {"from": accounts[1]}
-#         )
+    vesting_executor_address = vesting_executor.address
 
-#     with capsys.disabled():
-#         print("Tx should fail because sender not from multisig")
+    vesting_manager_address = vesting_manager
 
-# #Non-multisig address can't cancel individual vesting schedule
-# def test_vesting_cancellation_not_multisig(vesting_manager, main, capsys, chain):
+    # Transfer EEFI #
 
-#     # ## Test Setup ##
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     # Contracts #
+    transfer_amount = 5000 * 10**18
 
-#     vesting_executor = main
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     vesting_executor_address = vesting_executor.address
+    # Set up Vesting Parameters #
 
-#     vesting_manager_address = vesting_manager
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     # Transfer EEFI #
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    # Vest Tokens ##
 
-#     transfer_amount = 5000 * 10**18
+    vestor_address = accounts[0].address
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_vesting_amount = 1000 * 10**18
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Set up Vesting Parameters #
+    ## Move Chain Forward ##
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    unix_seconds_in_a_day = 86399
+    days = 95
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     # Vest Tokens ##
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     vestor_address = accounts[0].address
+    ## Test Actions ##
 
-#     eefi_vesting_amount = 1000 * 10**18
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     ## Move Chain Forward ##
+    with brownie.reverts():
+        cancel_vesting_for_user = (
+            vesting_executor.cancelVesting(
+                vestor_address, account_vesting_number, {"from": accounts[1]}
+            ),
+            "If failed, multisig modifier did not work",
+        )
 
-#     unix_seconds_in_a_day = 86399
-#     days = 95
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    with capsys.disabled():
+        print("If failed, multisig modifier did not work")
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
-
-#     ## Test Actions ##
-
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
-
-#     account_vesting_number = account_vesting_schedule[0][0]
-
-#     with brownie.reverts():
-#         cancel_vesting_for_user = (
-#             vesting_executor.cancelVesting(
-#                 vestor_address, account_vesting_number, {"from": accounts[1]}
-#             ),
-#             "If failed, multisig modifier did not work",
-#         )
-
-#     with capsys.disabled():
-#         print("If failed, multisig modifier did not work")
-
-
-# ##### ----- Vesting Asset Purchases, Swaps and Standard Vesting  ----- #####
+##### ----- Vesting Asset Purchases, Swaps and Standard Vesting  ----- #####
 
 # Purchase vesting asset with USDC, release portion of vesting asset allocation to purchaser
-# def test_purchase_vesting_token_usdc(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_purchase_vesting_token_usdc(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     usdc_contract = Contract("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
+    usdc_contract = Contract("0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48")
 
-#     usdc_token_address = usdc_contract.address
+    usdc_token_address = usdc_contract.address
 
-#     usdc_whale = accounts.at("0x7B299ff0Bf1531C095bBE63bCF79af31eEA418Da", force=True)
+    usdc_whale = accounts.at("0x7B299ff0Bf1531C095bBE63bCF79af31eEA418Da", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     # Vesting Token Pricing #
+    # Vesting Token Pricing #
 
-#     vesting_token_price = 12
+    vesting_token_price = 12
 
-#     usdc_approval = 500000 * 10**6
+    usdc_approval = 500000 * 10**6
 
-#     desired_eefi_amount = 426.258897
+    desired_eefi_amount = 426.258897
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**6
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**6
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     eefi_token_address = eefi_contract.address
+    eefi_token_address = eefi_contract.address
 
-#     eefi_token_decimals = 10**18
+    eefi_token_decimals = 10**18
 
-#     eefi_token_decimal_number = 18
+    eefi_token_decimal_number = 18
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     usdc_approval_tx = usdc_contract.approve(
-#         vesting_executor_address, usdc_approval, {"from": usdc_whale}
-#     )
+    usdc_approval_tx = usdc_contract.approve(
+        vesting_executor_address, usdc_approval, {"from": usdc_whale}
+    )
 
-#     purchase_tx = vesting_executor.purchaseVestingToken(
-#         desired_eefi_amount * eefi_token_decimals,
-#         usdc_token_address,
-#         eefi_contract.address,
-#         vesting_params_list,
-#         {"from": usdc_whale},
-#     )
-#     release_percentage_decimal = 0.02
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * eefi_token_decimals,
+        usdc_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": usdc_whale},
+    )
+    release_percentage_decimal = 0.02
 
-#     bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
 
-#     eefi_vested = (desired_eefi_amount - bonus_amount) * 10 ** 18
+    eefi_vested = (desired_eefi_amount - bonus_amount) * 10 ** 18
 
-#     vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
+    vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
 
-#     assert (
-#         vested_amount_contract == eefi_vested
-#     ), "Vested amount and expected vested amount don't match"
+    assert (
+        vested_amount_contract == eefi_vested
+    ), "Vested amount and expected vested amount don't match"
 
-#     with capsys.disabled():
-#         print(purchase_tx.events[-1])
-#         print(purchase_tx.info())
-#         # print(vested_amount_contract)
-#         print("USDC whale balance", usdc_contract.balanceOf(usdc_whale))
-#         print(("Purchase Amount", purchase_amount))
+    with capsys.disabled():
+        print(purchase_tx.events[-1])
+        print(purchase_tx.info())
+        # print(vested_amount_contract)
+        print("USDC whale balance", usdc_contract.balanceOf(usdc_whale))
+        print(("Purchase Amount", purchase_amount))
 
 # Purchase asset with DAI, vest, release portion of vesting asset allocation to purchaser
-# def test_purchase_vesting_token_dai(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_purchase_vesting_token_dai(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+    dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
-#     dai_token_address = dai_contract.address
+    dai_token_address = dai_contract.address
 
-#     dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
+    dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     # Vesting Token Pricing #
+    # Vesting Token Pricing #
 
-#     dai_approval = 500000 * 10**18
+    dai_approval = 500000 * 10**18
 
-#     desired_eefi_amount = 300
+    desired_eefi_amount = 300
 
-#     vesting_token_price = 12
+    vesting_token_price = 12
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     dai_approval_tx = dai_contract.approve(
-#         vesting_executor_address, dai_approval, {"from": dai_whale}
-#     )
+    dai_approval_tx = dai_contract.approve(
+        vesting_executor_address, dai_approval, {"from": dai_whale}
+    )
 
-#     purchase_tx = vesting_executor.purchaseVestingToken(
-#         desired_eefi_amount * 10 ** 18,
-#         dai_token_address,
-#         eefi_contract.address,
-#         vesting_params_list,
-#         {"from": dai_whale},
-#     )
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * 10 ** 18,
+        dai_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": dai_whale},
+    )
 
-#     release_percentage_decimal = 0.02
+    release_percentage_decimal = 0.02
 
-#     bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
 
-#     eefi_vested = (desired_eefi_amount - bonus_amount) * 10 ** 18
+    eefi_vested = (desired_eefi_amount - bonus_amount) * 10 ** 18
 
-#     vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
+    vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
 
-#     assert (
-#         vested_amount_contract == eefi_vested
-#     ), "Vested amount and expected vested amount don't match"
+    assert (
+        vested_amount_contract == eefi_vested
+    ), "Vested amount and expected vested amount don't match"
 
-#     with capsys.disabled():
-#         print(vested_amount_contract)
-#         print("DAI whale balance", dai_contract.balanceOf(dai_whale))
-#         print(("Purchase Amount", purchase_amount))
+    with capsys.disabled():
+        print(vested_amount_contract)
+        print("DAI whale balance", dai_contract.balanceOf(dai_whale))
+        print(("Purchase Amount", purchase_amount))
 
 # Vest assets for address (owner-only), used to vest team assets
-# def test_standard_vesting(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_standard_vesting(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     assert (
-#         standard_vesting_transaction.events[0]["asset"] == eefi_contract.address
-#     ), "Vesting token was not successfully vested"
+    assert (
+        standard_vesting_transaction.events[0]["asset"] == eefi_contract.address
+    ), "Vesting token was not successfully vested"
 
-#     contract_vested_amount = int(standard_vesting_transaction.events[0]["amount"])
+    contract_vested_amount = int(standard_vesting_transaction.events[0]["amount"])
 
-#     assert (
-#         contract_vested_amount == eefi_vesting_amount
-#     ), "Vested token amount mismatch"
+    assert (
+        contract_vested_amount == eefi_vesting_amount
+    ), "Vested token amount mismatch"
 
-#     with capsys.disabled():
-#         print(standard_vesting_transaction.info())
-#         print(standard_vesting_transaction.events)
+    with capsys.disabled():
+        print(standard_vesting_transaction.info())
+        print(standard_vesting_transaction.events)
 
 # Swap asset for vested asset (includes setting swap ratio), used to swap old asset for new asset and vest
 # Asset is deposited into the Token Lock contract
@@ -677,7 +654,7 @@ def test_swap_and_vest(set_vesting_token, standard_vesting_parameters, vesting_m
 
     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-    transfer_amount = 5000 * 10**18
+    transfer_amount = 1500 * 10**18
 
     eefi_contract.transfer(
         vesting_manager_address, transfer_amount, {"from": eefi_whale}
@@ -741,15 +718,13 @@ def test_swap_and_vest(set_vesting_token, standard_vesting_parameters, vesting_m
 
     # Swap Transaction
 
-    vestor_address = accounts[0].address
-
-    swap_token_amount = 852.36585
+    swap_token_amount = 252.36585
 
     swap_token_decimals = 10**18
 
     token_to_swap = eefi_contract.address
 
-    eefi_approval = 1000 * 10**18
+    eefi_approval = 5000 * 10**18
     
     vesting_token_decimals = 10**18
 
@@ -774,714 +749,843 @@ def test_swap_and_vest(set_vesting_token, standard_vesting_parameters, vesting_m
     with capsys.disabled():
         print(swap_and_vest_transaction.info())
 
+
+# Swap asset for vested asset (includes setting swap ratio), used to swap old asset for new asset and vest
+# Token lock is set to inactive and asset is deposited into the Treasury contract
+def test_swap_and_vest_treasury(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys, chain):
+
+    ## Test Setup ##
+
+    # Contracts #
+
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    vesting_executor_address = vesting_executor.address
+
+    vesting_manager_address = vesting_manager
+
+    # Transfer EEFI #
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    transfer_amount = 1500 * 10**18
+
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+
+    # Set up Vesting Parameters #
+
+    vesting_params_list = standard_vesting_parameters
+
+    ## Test Actions ##
+
+    # Swap Status
+
+    swap_status = 0  # Active
+
+    vesting_executor.setSwappingStatus(swap_status)  # Set status
+
+    swapping_status = vesting_executor.getCurrentSwappingStatus()  # Check status
+
+    assert swap_status == swapping_status, "Swapping status not set to active"
+    
+    # Token Lock Status 
+    
+    token_lock_status = 1  # Inactive
+    
+    vesting_executor.setTokenLockStatus(token_lock_status)  # Set status
+    
+    token_lock_status_contract = vesting_executor.getCurrentTokenLockStatus()  # Check status
+    
+    assert token_lock_status == token_lock_status_contract, "Token locking not set to inactive"
+    
+    # Swap Ratio
+
+    swap_ratio = 0.25
+    
+    swap_ratio_scaled = 0.25 * 10 ** 4
+
+    vesting_executor.setSwapRatio(swap_ratio_scaled, {"from": accounts[1]})
+
+    contract_swap_ratio = vesting_executor.swapRatio()
+    
+    assert (
+        contract_swap_ratio == swap_ratio_scaled
+    ), "Swap ratio not set properly" 
+
+    # Add Authorized Swap Token
+
+    swap_token_address = eefi_contract.address
+
+    swap_token_decimals = 10**18
+
+    set_swap_token = vesting_executor.addAuthorizedSwapToken(
+        swap_token_address, swap_token_decimals, {"from": accounts[1]}
+    )
+
+    swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
+
+    assert (
+        swap_token_details[0] == swap_token_address
+    ), "Swap token address not set properly"
+    assert (
+        swap_token_details[1] == swap_token_decimals
+    ), "Swap token decimals not set properly"
+
+    # Add Vesting Token
+
+    set_vesting_token = set_vesting_token
+
+    # Swap Transaction
+
+    swap_token_amount = 632.89652
+
+    swap_token_decimals = 10**18
+
+    token_to_swap = eefi_contract.address
+
+    eefi_approval = 5000 * 10**18
+    
+    vesting_token_decimals = 10**18
+
+    eefi_approval_tx = eefi_contract.approve(
+        vesting_executor_address, eefi_approval, {"from": eefi_whale}
+    )
+
+    swap_and_vest_transaction = vesting_executor.swapAndVest(
+        swap_token_amount * swap_token_decimals,
+        token_to_swap,
+        vesting_params_list,
+        {"from": eefi_whale},
+    )
+    
+    treasury_address = "0xf950a86013bAA227009771181a885E369e158da3"
+    
+    assert swap_and_vest_transaction.events[3]['to'] == treasury_address, "Token not transferred to Treasury address"
+
+    expected_vested_token_amount = (swap_token_amount * swap_ratio) 
+    contract_vested_token_amount = int(swap_and_vest_transaction.events[-2]['amount']) / vesting_token_decimals
+
+    assert math.isclose(
+            expected_vested_token_amount, contract_vested_token_amount, rel_tol=0.005
+        ), f"The amount vested ({contract_vested_token_amount}) and the expected amount ({expected_vested_token_amount}) are not as close as expected."
+    
+    with capsys.disabled():
+        print(swap_and_vest_transaction.info())
+
 # Purchase is less than purchase price threshold (no bonus provided)
-# def test_purchase_vesting_token_purchase_price_lower_than_threshold(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_purchase_vesting_token_purchase_price_lower_than_threshold(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+    dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
-#     dai_token_address = dai_contract.address
+    dai_token_address = dai_contract.address
 
-#     dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
+    dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     # Vesting Token Pricing #
+    # Vesting Token Pricing #
 
-#     vesting_token_price = 12
+    vesting_token_price = 12
 
-#     dai_approval = 500000 * 10**18
+    dai_approval = 500000 * 10**18
 
-#     desired_eefi_amount = 25.786
+    desired_eefi_amount = 25.786
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     eefi_token_address = eefi_contract.address
+    eefi_token_address = eefi_contract.address
 
-#     eefi_token_decimals = 10**18
+    eefi_token_decimals = 10**18
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     dai_approval_tx = dai_contract.approve(
-#         vesting_executor_address, dai_approval, {"from": dai_whale}
-#     )
+    dai_approval_tx = dai_contract.approve(
+        vesting_executor_address, dai_approval, {"from": dai_whale}
+    )
 
-#     purchase_tx = vesting_executor.purchaseVestingToken(
-#         desired_eefi_amount * eefi_token_decimals,
-#         dai_token_address,
-#         eefi_contract.address,
-#         vesting_params_list,
-#         {"from": dai_whale},
-#     )
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * eefi_token_decimals,
+        dai_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": dai_whale},
+    )
 
-#     scaled_desired_eefi_amount = desired_eefi_amount * 10 ** 18
+    scaled_desired_eefi_amount = desired_eefi_amount * 10 ** 18
 
-#     assert (
-#         float(purchase_tx.events[-1]["amount"]) == scaled_desired_eefi_amount
-#     ), "Purchase amount not expected amount"
+    assert (
+        float(purchase_tx.events[-1]["vestedAssetAmount"]) == scaled_desired_eefi_amount
+    ), "Purchase amount not expected amount"
 
-#     with capsys.disabled():
-#         print(purchase_tx.info())
-#         print("DAI whale balance", dai_contract.balanceOf(dai_whale))
-#         print(("Purchase Amount", purchase_amount))
+    with capsys.disabled():
+        print(purchase_tx.info())
+        print("DAI whale balance", dai_contract.balanceOf(dai_whale))
+        print(("Purchase Amount", purchase_amount))
 
-# ##### ----- Vested Asset Claiming / Schedule Cancellation ----- #####
+##### ----- Vested Asset Claiming / Schedule Cancellation ----- #####
 
 # Claim standard vested asset after 1 year (note that contract claims on behalf of user, but token is sent to schedule holder)
-# def test_vesting_claim_standard_vest(vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+def test_vesting_claim_standard_vest(vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     # Vest Tokens #
+    # Vest Tokens #
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Move Chain Forward ##
+    # Move Chain Forward ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 375
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 375
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
-#     ## Test Actions ##
+    chain.mine(1, unix_time_at_end_of_vesting)
+    ## Test Actions ##
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     # Test is of partial claim, as vesting period has not concluded
-#     account_claim_transaction = vesting_executor.claimTokens(
-#         account_vesting_number, vestor_address
-#     )
+    # Test is of partial claim, as vesting period has not concluded
+    account_claim_transaction = vesting_executor.claimTokens(
+        account_vesting_number, vestor_address
+    )
 
-#     assert (
-#         account_claim_transaction.events[1]["claimer"] == vestor_address
-#     ), "Vesting claim did not succeed"
+    assert (
+        account_claim_transaction.events[1]["claimer"] == vestor_address
+    ), "Vesting claim did not succeed"
 
-#     with capsys.disabled():
-#         print(standard_vesting_transaction.info())
-#         print(account_vesting_schedule)
-#         print(account_claim_transaction.info())
-#         print(vestor_address)
+    with capsys.disabled():
+        print(standard_vesting_transaction.info())
+        print(account_vesting_schedule)
+        print(account_claim_transaction.info())
+        print(vestor_address)
 
-# #Claim purchased asset after 1 year
-# def test_vesting_claim_purchase(set_vesting_token, vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+#Claim purchased asset after 1 year
+def test_vesting_claim_purchase(set_vesting_token, vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+    dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
-#     dai_token_address = dai_contract.address
+    dai_token_address = dai_contract.address
 
-#     dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
+    dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     # Vesting Token Pricing #
+    # Vesting Token Pricing #
 
-#     vesting_token_price = 12
+    vesting_token_price = 12
 
-#     dai_approval = 500000 * 10**18
+    dai_approval = 500000 * 10**18
 
-#     desired_eefi_amount = 300
+    desired_eefi_amount = 300
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     eefi_token_address = eefi_contract.address
+    eefi_token_address = eefi_contract.address
 
-#     eefi_token_decimals = 10**18
+    eefi_token_decimals = 10**18
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False  # Vesting can be cancelled
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = current_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False  # Vesting can be cancelled
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = current_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     ## Buy Vesting Tokens ##
+    ## Buy Vesting Tokens ##
 
-#     dai_approval_tx = dai_contract.approve(
-#         vesting_executor_address, dai_approval, {"from": dai_whale}
-#     )
+    dai_approval_tx = dai_contract.approve(
+        vesting_executor_address, dai_approval, {"from": dai_whale}
+    )
 
-#     purchase_tx = vesting_executor.purchaseVestingToken(
-#         desired_eefi_amount * eefi_token_decimals,
-#         dai_token_address,
-#         eefi_contract.address,
-#         vesting_params_list,
-#         {"from": dai_whale},
-#     )
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * eefi_token_decimals,
+        dai_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": dai_whale},
+    )
 
-#     # Move Chain Forward ##
+    # Move Chain Forward ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 375
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 375
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     dai_whale_address = dai_whale.address
+    dai_whale_address = dai_whale.address
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(dai_whale_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(dai_whale_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     # Test is of partial claim, as vesting period has not concluded
-#     account_claim_transaction = vesting_executor.claimTokens(
-#         account_vesting_number, dai_whale_address
-#     )
+    # Test is of partial claim, as vesting period has not concluded
+    account_claim_transaction = vesting_executor.claimTokens(
+        account_vesting_number, dai_whale_address
+    )
 
-#     assert (
-#         account_claim_transaction.events[1]["claimer"] == dai_whale_address
-#     ), "Vesting claim did not succeed"
+    assert (
+        account_claim_transaction.events[1]["claimer"] == dai_whale_address
+    ), "Vesting claim did not succeed"
 
-#     with capsys.disabled():
-#         print(purchase_tx.info())
-#         print(account_vesting_schedule)
-#         print(account_claim_transaction.info())
-#         print(dai_whale_address)
+    with capsys.disabled():
+        print(purchase_tx.info())
+        print(account_vesting_schedule)
+        print(account_claim_transaction.info())
+        print(dai_whale_address)
 
-# #Cancel individual vesting schedule after 3 months (multisig only)
-# def test_vesting_cancellation(vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+#Cancel individual vesting schedule after 3 months (multisig only)
+def test_vesting_cancellation(vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     # Vest Tokens ##
+    # Vest Tokens ##
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     ## Move Chain Forward ##
+    ## Move Chain Forward ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 95
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 95
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     cancel_vesting_for_user = vesting_executor.cancelVesting(
-#         vestor_address, account_vesting_number, {"from": eefi_whale}
-#     )
+    cancel_vesting_for_user = vesting_executor.cancelVesting(
+        vestor_address, account_vesting_number, {"from": eefi_whale}
+    )
 
-#     assert (
-#         cancel_vesting_for_user.events[0]["value"] == eefi_vesting_amount
-#     ), "Vesting was not cancelled"
+    assert (
+        cancel_vesting_for_user.events[0]["value"] == eefi_vesting_amount
+    ), "Vesting was not cancelled"
 
-#     with capsys.disabled():
-#         print(cancel_vesting_for_user.info())
+    with capsys.disabled():
+        print(cancel_vesting_for_user.info())
 
-# ##### ----- Views  ----- #####
+##### ----- Views  ----- #####
 
 # View global locked token amount
-# def test_view_locked_token_amount(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_view_locked_token_amount(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Vest Tokens #
+    # Vest Tokens #
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     # View Locked Amount #
+    # View Locked Amount #
 
-#     locked_tokens = vesting_executor.viewLockedAmount(eefi_contract.address)
+    locked_tokens = vesting_executor.viewLockedAmount(eefi_contract.address)
 
-#     assert (
-#         locked_tokens == eefi_vesting_amount
-#     ), "Mismatch between tokens vested and locked."
+    assert (
+        locked_tokens == eefi_vesting_amount
+    ), "Mismatch between tokens vested and locked."
 
-#     with capsys.disabled():
-#         print("Locked and vested tokens should match.")
+    with capsys.disabled():
+        print("Locked and vested tokens should match.")
 
-# #View indiviudal vesting schedule
-# def test_view_individual_vesting_schedule(standard_vesting_parameters, vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+#View indiviudal vesting schedule
+def test_view_individual_vesting_schedule(standard_vesting_parameters, vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Vest Tokens ##
+    # Vest Tokens ##
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     assert account_vesting_number == 0, "View not working properly"
+    assert account_vesting_number == 0, "View not working properly"
 
-#     with capsys.disabled():
-#         print("Vesting schedule number should be 0, as it is the first vesting schedule created")
-#         print(account_vesting_schedule)
+    with capsys.disabled():
+        print("Vesting schedule number should be 0, as it is the first vesting schedule created")
+        print(account_vesting_schedule)
 
-# ##### ----- Requirements ----- #####
+##### ----- Requirements ----- #####
 
-# # #Can't vest more tokens than in the contract (locked + unlocked quantities)
-# def test_standard_vesting_token_runs_out(standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+# #Can't vest more tokens than in the contract (locked + unlocked quantities)
+def test_standard_vesting_token_runs_out(standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     # Vest 1
-#     vestor_address = accounts[0].address
+    # Vest 1
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2500 * 10**18
+    eefi_vesting_amount = 2500 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Vest 2 (more than what is left in contract - locked)
-#     vestor_address = accounts[0].address
+    # Vest 2 (more than what is left in contract - locked)
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2501 * 10**18
+    eefi_vesting_amount = 2501 * 10**18
 
-#     with brownie.reverts("Vesting: Not enough unlocked supply available to to vest"):
+    with brownie.reverts("Vesting: Not enough unlocked supply available to to vest"):
 
-#         standard_vesting_transaction = vesting_executor.standardVesting(
-#             vestor_address,
-#             eefi_vesting_amount,
-#             vesting_params_list,
-#             {"from": accounts[1]},
-#         )
+        standard_vesting_transaction = vesting_executor.standardVesting(
+            vestor_address,
+            eefi_vesting_amount,
+            vesting_params_list,
+            {"from": accounts[1]},
+        )
 
-#     with capsys.disabled():
+    with capsys.disabled():
 
-#         print(standard_vesting_transaction.info())
-#         print(
-#             "Transaction should fail because total vested amount requests exceed contract balance (locked and unlocked tokens)"
-#         )
+        print(standard_vesting_transaction.info())
+        print(
+            "Transaction should fail because total vested amount requests exceed contract balance (locked and unlocked tokens)"
+        )
 
 # Can't purchase vesting asset with non-approved token
-# def test_purchase_vesting_token_non_approved_token(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_purchase_vesting_token_non_approved_token(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     lusd_contract = Contract("0x5f98805A4E8be255a32880FDeC7F6728C6568bA0")
+    lusd_contract = Contract("0x5f98805A4E8be255a32880FDeC7F6728C6568bA0")
 
-#     lusd_token_address = lusd_contract.address
+    lusd_token_address = lusd_contract.address
 
-#     lusd_whale = accounts.at("0x833642ED556a8a41D5fd5729D9fED774A039f13c", force=True)
+    lusd_whale = accounts.at("0x833642ED556a8a41D5fd5729D9fED774A039f13c", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     lusd_approval = 500000 * 10**18
+    lusd_approval = 500000 * 10**18
 
-#     desired_eefi_amount = 300
+    desired_eefi_amount = 300
 
-#     vesting_token_price = 12
+    vesting_token_price = 12
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     eefi_token_address = eefi_contract.address
+    eefi_token_address = eefi_contract.address
 
-#     eefi_token_decimals = 10**18
+    eefi_token_decimals = 10**18
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     lusd_approval_tx = lusd_contract.approve(
-#         vesting_executor_address, lusd_approval, {"from": lusd_whale}
-#     )
+    lusd_approval_tx = lusd_contract.approve(
+        vesting_executor_address, lusd_approval, {"from": lusd_whale}
+    )
 
-#     with brownie.reverts("Exchange token must be a valid approved token"):
-#         purchase_tx = vesting_executor.purchaseVestingToken(
-#             desired_eefi_amount *  eefi_token_decimals,
-#             lusd_token_address,
-#             eefi_contract.address,
-#             vesting_params_list,
-#             {"from": lusd_whale},
-#         )
+    with brownie.reverts("Exchange token must be a valid approved token"):
+        purchase_tx = vesting_executor.purchaseVestingToken(
+            desired_eefi_amount *  eefi_token_decimals,
+            lusd_token_address,
+            eefi_contract.address,
+            vesting_params_list,
+            {"from": lusd_whale},
+        )
 
-#     with capsys.disabled():
-#         print("Purchase should fail because LUSD not in approved tokens list")
+    with capsys.disabled():
+        print("Purchase should fail because LUSD not in approved tokens list")
 
-# #Can't vest when vesting is paused.
-# def test_vesting_when_paused(standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+#Can't vest when vesting is paused.
+def test_vesting_when_paused(standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Pause Vesting
+    # Pause Vesting
 
-#     testing_status = 1  # Inactive
+    testing_status = 1  # Inactive
 
-#     vesting_executor.setVestingStatus(testing_status, {"from": accounts[1]})  # Set status
+    vesting_executor.setVestingStatus(testing_status, {"from": accounts[1]})  # Set status
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2500 * 10**18
+    eefi_vesting_amount = 2500 * 10**18
 
-#     with brownie.reverts("Vesting not active"):
+    with brownie.reverts("Vesting not active"):
 
-#         standard_vesting_transaction = vesting_executor.standardVesting(
-#             vestor_address,
-#             eefi_vesting_amount,
-#             vesting_params_list,
-#             {"from": accounts[1]},
-#         )
+        standard_vesting_transaction = vesting_executor.standardVesting(
+            vestor_address,
+            eefi_vesting_amount,
+            vesting_params_list,
+            {"from": accounts[1]},
+        )
 
-#     with capsys.disabled():
-#         print(
-#             "Transaction should fail because vesting is paused"
-#         )
+    with capsys.disabled():
+        print(
+            "Transaction should fail because vesting is paused"
+        )
 
 # Can't swap when swapping is paused.
 def test_swap_and_vest_when_paused(vesting_manager, main, capsys, chain):
@@ -1656,652 +1760,652 @@ def test_swap_and_vest_with_non_approved_asset(standard_vesting_parameters, vest
     with capsys.disabled():
         print("Swap transaction should fail because swap token is not authorized.")
 
-# #Can't vest with incorrect vesting parameters
-# def test_standard_vesting_incorrect_parameters(vesting_manager, main, capsys):
-#     # ## Test Setup ##
+#Can't vest with incorrect vesting parameters
+def test_standard_vesting_incorrect_parameters(vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Invalid Vesting Parameters #
+    # Set up Invalid Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 50  # Vesting is less than cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 50  # Vesting is less than cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2500 * 10**18
+    eefi_vesting_amount = 2500 * 10**18
 
-#     with brownie.reverts("Vesting: invalid vesting params set"):
+    with brownie.reverts("Vesting: invalid vesting params set"):
 
-#         standard_vesting_transaction = vesting_executor.standardVesting(
-#             vestor_address,
-#             eefi_vesting_amount,
-#             vesting_params_list,
-#             {"from": accounts[1]},
-#         )
+        standard_vesting_transaction = vesting_executor.standardVesting(
+            vestor_address,
+            eefi_vesting_amount,
+            vesting_params_list,
+            {"from": accounts[1]},
+        )
 
 
-#     with capsys.disabled():
-#         print(
-#             "Transaction should fail because vesting parameters are not correct."
-#         )
+    with capsys.disabled():
+        print(
+            "Transaction should fail because vesting parameters are not correct."
+        )
 
 # Can't claim asset during cliff period
-# def test_vesting_claim_standard_before_cliff_end(vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+def test_vesting_claim_standard_before_cliff_end(vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     # Vest Tokens #
+    # Vest Tokens #
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Move Chain Forward (Less than 1 year) ##
+    # Move Chain Forward (Less than 1 year) ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 275
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 275
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     # Attempt to claim before cliff end
+    # Attempt to claim before cliff end
 
-#     with brownie.reverts("Vesting: cliff not reached"):
-#         account_claim_transaction = vesting_executor.claimTokens(
-#             account_vesting_number, vestor_address
-#         )
+    with brownie.reverts("Vesting: cliff not reached"):
+        account_claim_transaction = vesting_executor.claimTokens(
+            account_vesting_number, vestor_address
+        )
 
-#     with capsys.disabled():
-#         print("Vesting claim should fail because cliff period has not ended")
+    with capsys.disabled():
+        print("Vesting claim should fail because cliff period has not ended")
 
 # Can't withdraw locked tokens
-# def test_vesting_cant_withdraw_locked_tokens(vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+def test_vesting_cant_withdraw_locked_tokens(vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 2000 * 10**18
+    transfer_amount = 2000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     # Vest Tokens #
+    # Vest Tokens #
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2000 * 10**18 #Lock all tokens
+    eefi_vesting_amount = 2000 * 10**18 #Lock all tokens
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Move Chain Forward (Less than 1 year) ##
+    # Move Chain Forward (Less than 1 year) ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 275
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 275
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     withdraw_amount = 2000 * 10**18 #Attempt to withdraw locked tokens
+    withdraw_amount = 2000 * 10**18 #Attempt to withdraw locked tokens
 
-#     with brownie.reverts("Vesting: Can't withdraw"):
+    with brownie.reverts("Vesting: Can't withdraw"):
 
-#         withdrawal_tx = vesting_executor.withdrawVestingTokens(
-#             withdraw_amount, eefi_contract.address, {"from": eefi_whale}
-#         )
+        withdrawal_tx = vesting_executor.withdrawVestingTokens(
+            withdraw_amount, eefi_contract.address, {"from": eefi_whale}
+        )
 
-#     with capsys.disabled():
-#         print("Withdrawal transaction should fail because all tokens are locked.")
+    with capsys.disabled():
+        print("Withdrawal transaction should fail because all tokens are locked.")
 
-# # Can't cancel fixed vesting schedule
-# def test_vesting_cancellation_fixed_decline(vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+# Can't cancel fixed vesting schedule
+def test_vesting_cancellation_fixed_decline(vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = True # Vesting schedule can't be changed
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = True # Vesting schedule can't be changed
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     # Vest Tokens ##
+    # Vest Tokens ##
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     ## Move Chain Forward ##
+    ## Move Chain Forward ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 95
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 95
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     with brownie.reverts("Vesting: Account is fixed"):
+    with brownie.reverts("Vesting: Account is fixed"):
 
-#         cancel_vesting_for_user = vesting_executor.cancelVesting(
-#             vestor_address, account_vesting_number, {"from": eefi_whale}
-#         )
+        cancel_vesting_for_user = vesting_executor.cancelVesting(
+            vestor_address, account_vesting_number, {"from": eefi_whale}
+        )
 
-#     with capsys.disabled():
-#         print("Transaction should fail because vesting schedule is fixed.")
+    with capsys.disabled():
+        print("Transaction should fail because vesting schedule is fixed.")
 
-# #Account can't claim another's vesting tokens
-# def test_vesting_claim_standard_non_vesting_account(vesting_manager, main, capsys, chain):
-#     # ## Test Setup ##
+#Account can't claim another's vesting tokens
+def test_vesting_claim_standard_non_vesting_account(vesting_manager, main, capsys, chain):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     # Vest Tokens #
+    # Vest Tokens #
 
-#     vestor_address = accounts[0].address
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 1000 * 10**18
+    eefi_vesting_amount = 1000 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Move Chain Forward (1 year) ##
+    # Move Chain Forward (1 year) ##
 
-#     unix_seconds_in_a_day = 86399
-#     days = 370
-#     unix_time_elapsed = int(unix_seconds_in_a_day * days)
+    unix_seconds_in_a_day = 86399
+    days = 370
+    unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
-#     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
+    unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
 
-#     chain.mine(1, unix_time_at_end_of_vesting)
+    chain.mine(1, unix_time_at_end_of_vesting)
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
+    account_vesting_schedule = vesting_executor.retrieveScheduleInfo(vestor_address)
 
-#     account_vesting_number = account_vesting_schedule[0][0]
+    account_vesting_number = account_vesting_schedule[0][0]
 
-#     # Attempt to claim another's Schedule
+    # Attempt to claim another's Schedule
 
-#     non_vesting_address = "0x4D663Bc146DBE8337D5fECd99d6f5cAB7B316A26"
+    non_vesting_address = "0x4D663Bc146DBE8337D5fECd99d6f5cAB7B316A26"
 
-#     with brownie.reverts("Vesting: Token not claimable"):
-#         account_claim_transaction = vesting_executor.claimTokens(
-#             account_vesting_number, non_vesting_address
-#         )
+    with brownie.reverts("Vesting: Token not claimable"):
+        account_claim_transaction = vesting_executor.claimTokens(
+            account_vesting_number, non_vesting_address
+        )
 
-#     with capsys.disabled():
-#         print("Vesting claim should fail because account does not have a vesting schedule")
+    with capsys.disabled():
+        print("Vesting claim should fail because account does not have a vesting schedule")
 
-# ##### ----- Edge Cases ----- #####
+##### ----- Edge Cases ----- #####
 
 # Purchase fractions of vesting asset
-# def test_purchase_vesting_token_dai_fraction(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+def test_purchase_vesting_token_dai_fraction(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+    dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
-#     dai_token_address = dai_contract.address
+    dai_token_address = dai_contract.address
 
-#     dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
+    dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     # Vesting Token Pricing #
+    # Vesting Token Pricing #
 
-#     vesting_token_price = 12
+    vesting_token_price = 12
 
-#     dai_approval = 500000 * 10**18
+    dai_approval = 500000 * 10**18
 
-#     desired_eefi_amount = 330.50
+    desired_eefi_amount = 330.50
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     dai_approval_tx = dai_contract.approve(
-#         vesting_executor_address, dai_approval, {"from": dai_whale}
-#     )
+    dai_approval_tx = dai_contract.approve(
+        vesting_executor_address, dai_approval, {"from": dai_whale}
+    )
 
-#     purchase_tx = vesting_executor.purchaseVestingToken(
-#         desired_eefi_amount * 10 ** 18,
-#         dai_token_address,
-#         eefi_contract.address,
-#         vesting_params_list,
-#         {"from": dai_whale},
-#     )
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * 10 ** 18,
+        dai_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": dai_whale},
+    )
 
-#     release_percentage_decimal = 0.02
+    release_percentage_decimal = 0.02
 
-#     bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
 
-#     eefi_vested = (desired_eefi_amount - bonus_amount) * 10 ** 18
+    eefi_vested = (desired_eefi_amount - bonus_amount) * 10 ** 18
 
-#     vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
+    vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
 
-#     assert (
-#         vested_amount_contract == eefi_vested
-#     ), "Vested amount and expected vested amount don't match"
+    assert (
+        vested_amount_contract == eefi_vested
+    ), "Vested amount and expected vested amount don't match"
 
-#     with capsys.disabled():
-#         print(purchase_tx.info())
-#         print("DAI whale balance", dai_contract.balanceOf(dai_whale))
-#         print(("Purchase Amount", purchase_amount))
+    with capsys.disabled():
+        print(purchase_tx.info())
+        print("DAI whale balance", dai_contract.balanceOf(dai_whale))
+        print(("Purchase Amount", purchase_amount))
 
 # Purchase price is fraction; amount desired is fraction;
-# def test_purchase_vesting_token_dai_price_fraction(
-#     set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys
-# ):
-#     # ## Test Setup ##
+def test_purchase_vesting_token_dai_price_fraction(
+    set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys
+):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+    dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
 
-#     dai_token_address = dai_contract.address
+    dai_token_address = dai_contract.address
 
-#     dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
+    dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Set Threshold and Release Percentage #
+    # Set Threshold and Release Percentage #
 
-#     purchase_amount_threshold = 3000
+    purchase_amount_threshold = 3000
 
-#     vesting_executor.setPurchaseAmountThreshold(
-#         purchase_amount_threshold, {"from": accounts[1]}
-#     )  # Set threshold
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
 
-#     release_percentage = 2
+    release_percentage = 2
 
-#     vesting_executor.setReleasePercentage(
-#         release_percentage, {"from": accounts[1]}
-#     )  # Set release percentage
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
 
-#     # Vesting Token Pricing #
+    # Vesting Token Pricing #
 
-#     vesting_token_price = (
-#         12.25 * 10**4
-#     )  # Note that adjustment was made in set_vesting_token_fixture for this test; The number is added to check calculations.
+    vesting_token_price = (
+        12.25 * 10**4
+    )  # Note that adjustment was made in set_vesting_token_fixture for this test; The number is added to check calculations.
 
-#     dai_approval = 500000 * 10**18
+    dai_approval = 500000 * 10**18
 
-#     desired_eefi_amount = 400.7689878
+    desired_eefi_amount = 400.7689878
 
-#     purchase_amount = (desired_eefi_amount * vesting_token_price) 
+    purchase_amount = (desired_eefi_amount * vesting_token_price) 
 
-#     purchase_amount_non_scaled = (desired_eefi_amount * vesting_token_price) / 10**4
+    purchase_amount_non_scaled = (desired_eefi_amount * vesting_token_price) / 10**4
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Set Vesting Token
+    # Set Vesting Token
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     dai_approval_tx = dai_contract.approve(
-#         vesting_executor_address, dai_approval, {"from": dai_whale}
-#     )
+    dai_approval_tx = dai_contract.approve(
+        vesting_executor_address, dai_approval, {"from": dai_whale}
+    )
 
-#     purchase_tx = vesting_executor.purchaseVestingToken(
-#         desired_eefi_amount * 10**18,
-#         dai_token_address,
-#         eefi_contract.address,
-#         vesting_params_list,
-#         {"from": dai_whale},
-#     )
-#     release_percentage_decimal = 0.02
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * 10**18,
+        dai_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": dai_whale},
+    )
+    release_percentage_decimal = 0.02
 
-#     bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
 
-#     eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
+    eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
 
-#     payment_amount_contract = float(purchase_tx.events[0]["number"]) / 10 ** 18
+    payment_amount_contract = float(purchase_tx.events[0]["number"]) / 10 ** 18
 
-#     assert math.isclose(
-#         payment_amount_contract, purchase_amount_non_scaled, rel_tol=1e-9
-#     ), f"The payment amount in the contract ({payment_amount_contract}) and the purchase amount ({purchase_amount}) are not as close as expected."
+    assert math.isclose(
+        payment_amount_contract, purchase_amount_non_scaled, rel_tol=1e-9
+    ), f"The payment amount in the contract ({payment_amount_contract}) and the purchase amount ({purchase_amount}) are not as close as expected."
     
-#     with capsys.disabled():
-#         print(purchase_tx.info())
-#         print("DAI whale balance", dai_contract.balanceOf(dai_whale))
-#         print("Purchase Amount", purchase_amount_non_scaled)
+    with capsys.disabled():
+        print(purchase_tx.info())
+        print("DAI whale balance", dai_contract.balanceOf(dai_whale))
+        print("Purchase Amount", purchase_amount_non_scaled)
 
 
-# #Test to ensure vesting still happens if small amounts of token are unlocked
-# def test_standard_vesting_minor_difference(standard_vesting_parameters, vesting_manager, main, capsys):
-#     # ## Test Setup ##
+#Test to ensure vesting still happens if small amounts of token are unlocked
+def test_standard_vesting_minor_difference(standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     # Vest 1
-#     vestor_address = accounts[0].address
+    # Vest 1
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2500 * 10**18
+    eefi_vesting_amount = 2500 * 10**18
 
-#     standard_vesting_transaction = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     # Vest 2 (small amount less than what's in the contract + locked)
-#     vestor_address = accounts[0].address
+    # Vest 2 (small amount less than what's in the contract + locked)
+    vestor_address = accounts[0].address
 
-#     eefi_vesting_amount = 2499.998 * 10**18
+    eefi_vesting_amount = 2499.998 * 10**18
 
-#     standard_vesting_transaction_1 = vesting_executor.standardVesting(
-#         vestor_address,
-#         eefi_vesting_amount,
-#         vesting_params_list,
-#         {"from": accounts[1]},
-#     )
+    standard_vesting_transaction_1 = vesting_executor.standardVesting(
+        vestor_address,
+        eefi_vesting_amount,
+        vesting_params_list,
+        {"from": accounts[1]},
+    )
 
-#     assert standard_vesting_transaction.status == 1, "Transaction did not succeed"
-#     assert standard_vesting_transaction_1.status == 1, "Second transaction did not succeed"
+    assert standard_vesting_transaction.status == 1, "Transaction did not succeed"
+    assert standard_vesting_transaction_1.status == 1, "Second transaction did not succeed"
 
-#     with capsys.disabled():
+    with capsys.disabled():
 
-#         print(standard_vesting_transaction.info())
-#         print(standard_vesting_transaction_1.info())
-#         print(
-#             "Transaction should succeed because total vested amount requests leave dust in the contract"
-#         )
+        print(standard_vesting_transaction.info())
+        print(standard_vesting_transaction_1.info())
+        print(
+            "Transaction should succeed because total vested amount requests leave dust in the contract"
+        )

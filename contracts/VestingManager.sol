@@ -9,11 +9,11 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /**
- * Vesting contract core functionality based on standard Myceleium 
+ * Vesting Manager core functionality based on standard Myceleium 
  (formerly Tracer DAO) vesting contract. Source code 
  available at: https://github.com/tracer-protocol/vesting/blob/master/contracts/Vesting.sol.
 
- Vesting manager can vest multiple tokens.
+ Vesting Manager can vest multiple tokens.
  An address can have multiple vesting schedules for multiple assets. 
  */
 

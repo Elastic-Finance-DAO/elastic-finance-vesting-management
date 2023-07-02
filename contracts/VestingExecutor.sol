@@ -39,7 +39,7 @@ contract VestingExecutor is Ownable {
     VestingManager public vestingManager; // Vesting Manager contract
     TokenLock public tokenLock; // Contract where swapped tokens are deposited; Contract has no owner or withdraw functions
 
-    /* ========== Structs ========== */
+    /* ========== Structs and Mappings ========== */
 
     /**
      * @notice Vesting parameters struct.
@@ -110,7 +110,8 @@ contract VestingExecutor is Ownable {
     /* ========== Constructor ========== */
 
     /**
-     * @notice Deploys the VestingManager contract and sets the VestingExecutor as the owner of the VestingManager.
+     * @notice Deploys the Vesting Manager contract and sets the Vesting Executor as the owner of the VestingManager.
+     Also deploys the Token Lock contract, which has no owner and no withdrawal functions; used to "burn" tokens swapped for vesting assets
      * @dev The VestingExecutor contract initializes the VestingManager contract during its own deployment.
      Constructor also sets the default purchase tokens: DAI and USDC.
      */
@@ -183,6 +184,15 @@ contract VestingExecutor is Ownable {
      */
     function getCurrentSwappingStatus() public view returns (swappingStatus) {
         return current_swapping_status;
+    }
+
+    /**
+     * @notice Fetches the current token locking status of the contract.
+     * @dev Uses the contract's stored `current_swapping_status` state variable.
+     * @return The current swapping status of the contract.
+     */
+    function getCurrentTokenLockStatus() public view returns (tokenLockStatus) {
+        return current_token_lock_status;
     }
 
     /* ========== Transfer ERC20 Tokens ========== */
@@ -276,6 +286,26 @@ contract VestingExecutor is Ownable {
             "Swapping not active"
         );
         _;
+    }
+
+    //Token lock options
+
+    enum tokenLockStatus {
+        tokenLockActive, //0
+        tokenLockInactive //1
+    }
+
+    //Default token lock status: Inactive
+    tokenLockStatus public current_token_lock_status =
+        tokenLockStatus.tokenLockActive;
+
+    /**
+     * @notice Changes the token lock status of the contract
+     * @dev Can only be called by the contract owner. Changes the status to the input value
+     * @param value The new token locking status
+     */
+    function setTokenLockStatus(uint256 value) public onlyOwner {
+        current_token_lock_status = tokenLockStatus(value);
     }
 
     /* ========== Set/Get Approved Purchase Tokens ========== */
@@ -428,12 +458,8 @@ contract VestingExecutor is Ownable {
      * @dev Can only be executed by the owner of the contract
      * @param _ratio The ratio (multiply by 10^4 before sending to contract)
      */
-    function setSwapRatio(uint256 _ratio)
-        public
-        onlyOwner
-    {
+    function setSwapRatio(uint256 _ratio) public onlyOwner {
         swapRatio = _ratio;
-
     }
 
     /* ========== Purchase and Vesting Functions ========== */
@@ -619,10 +645,9 @@ contract VestingExecutor is Ownable {
         address tokenToSwap,
         VestingParams memory _vestingParams
     ) public whenSwappingActive {
-        
         //Set vestor address to msg sender
         address vestor = msg.sender;
-        
+
         // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
         require(
             _vestingParams.vestingWeeks > 0 &&
@@ -640,18 +665,28 @@ contract VestingExecutor is Ownable {
         uint256 vestingAmount = swapTokenAmount.mul(swapRatio).div(10**4);
         emit processLog("Vesting Amount Calculated", vestingAmount);
 
-        // Transfer tokens to TokenLock contract
+        // Transfer tokens to TokenLock contract or Treasury
         authorizedSwapTokens[tokenToSwap].token.safeTransferFrom(
             msg.sender,
             address(this),
             swapTokenAmount
         );
 
-        _transferERC20(IERC20(tokenToSwap), address(tokenLock), swapTokenAmount);
+        if (current_token_lock_status == tokenLockStatus.tokenLockActive) {
+            // Transfer token to Token Lock contract (default behavior)
+            _transferERC20(
+                IERC20(tokenToSwap),
+                address(tokenLock),
+                swapTokenAmount
+            );
+        } else {
+            // Transfer token to TREASURY
+            _transferERC20(IERC20(tokenToSwap), TREASURY, swapTokenAmount);
+        }
 
         emit processLog("Swap Token Transfered", swapTokenAmount);
 
-        // Vest tokens on behalf of user 
+        // Vest tokens on behalf of user
         _vest(vestor, vestingAmount, _vestingParams);
 
         emit vestingTransactionComplete(vestor, vestingAmount);
