@@ -4,6 +4,23 @@ pragma solidity 0.8.9;
 
 import "./VestingManager.sol";
 
+/**
+ * Vesting Executor contract interacts with, and is the owner, of Vesting Manager. 
+ Contract executes:
+- Purchasing of vested tokens at varying prices. After purchase, asset is vested on behalf of user.
+- Swapping of asset for a vested asset (at a pre-defined ratio). After swap, asset is vested on behalf of swapper
+- Standard vesting transaction: Assign a vesting schedule to an account 
+- Cancellation of individual vesting schedules (limited to multisig)
+- Withdrawal of unlocked tokens from Vesting Manager account (limited to multisig)
+- Vesting and swapping are only possible when vesting/swapping is active 
+- Asset claiming at end of cliff period on behalf of vestors 
+
+Contract allows for multiple: 
+- Assets to be vested simultaneously 
+- Tokens to be used to purchase vested assets 
+- Tokens to be used to swap for vested assets 
+ */
+
 contract VestingExecutor is Ownable {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
@@ -12,7 +29,7 @@ contract VestingExecutor is Ownable {
 
     address payable immutable TREASURY =
         payable(0xf950a86013bAA227009771181a885E369e158da3);
-    uint256 public vestingTokenPrice; // In USD
+
     uint256 public purchaseAmountThreshold; // Amount of vesting token that must be purchased to trigger immediate release of coins
     uint256 public releasePercentage; // Percentage of total amount that will be released
     address public authorizedSwapTokenAddress; //Token that can be swapped for vesting token (which will be vested on behalf of the user)
@@ -50,6 +67,7 @@ contract VestingExecutor is Ownable {
     struct approvedPurchaseTokens {
         IERC20 token;
         uint256 decimals;
+        uint256 numDecimals;
     }
 
     mapping(address => approvedPurchaseTokens) public purchaseTokens;
@@ -62,6 +80,8 @@ contract VestingExecutor is Ownable {
     struct VestingTokens {
         IERC20 token;
         uint256 decimals;
+        uint256 numDecimals;
+        uint256 price;
     }
 
     mapping(address => VestingTokens) public vestingTokens;
@@ -102,14 +122,16 @@ contract VestingExecutor is Ownable {
             address(0x6B175474E89094C44Da98b954EedeAC495271d0F) //DAI
         ] = approvedPurchaseTokens({
             token: IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F),
-            decimals: 10**18
+            decimals: 10**18,
+            numDecimals: 18
         });
 
         purchaseTokens[
             address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) //USDC
         ] = approvedPurchaseTokens({
             token: IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 10**6
+            decimals: 10**6,
+            numDecimals: 6
         });
     }
 
@@ -191,7 +213,7 @@ contract VestingExecutor is Ownable {
         token.transfer(to, amount);
     }
 
-    /* ========== Manage Vesting/swap Status ========== */
+    /* ========== Manage Vesting/Swap Status ========== */
 
     //Vesting status options
     enum vestingStatus {
@@ -261,11 +283,13 @@ contract VestingExecutor is Ownable {
      * @dev Can only be called by the contract owner. Reverts if the token already exists on the list or if the address is invalid
      * @param _tokenAddress The address of the new token to add
      * @param _decimals The decimals of the new token
+     * @param _numDecimals Decimals of the token
      */
-    function addPurchaseToken(address _tokenAddress, uint8 _decimals)
-        public
-        onlyOwner
-    {
+    function addPurchaseToken(
+        address _tokenAddress,
+        uint256 _decimals,
+        uint256 _numDecimals
+    ) public onlyOwner {
         require(_tokenAddress != address(0), "Invalid token address");
         require(
             address(purchaseTokens[_tokenAddress].token) == address(0),
@@ -274,7 +298,8 @@ contract VestingExecutor is Ownable {
 
         purchaseTokens[_tokenAddress] = approvedPurchaseTokens({
             token: IERC20(_tokenAddress),
-            decimals: _decimals
+            decimals: _decimals,
+            numDecimals: _numDecimals
         });
     }
 
@@ -299,11 +324,15 @@ contract VestingExecutor is Ownable {
      * @dev Can only be called by the contract owner. Reverts if the token already exists on the list or if the address is invalid
      * @param _tokenAddress The address of the new token to add
      * @param _decimals The decimals of the new token
+     * @param _price The USD price of the new token (scale price by 10^4)
+     * @param _numDecimals Decimals of the token
      */
-    function addVestingToken(address _tokenAddress, uint256 _decimals)
-        public
-        onlyOwner
-    {
+    function addVestingToken(
+        address _tokenAddress,
+        uint256 _decimals,
+        uint256 _price,
+        uint256 _numDecimals
+    ) public onlyOwner {
         require(_tokenAddress != address(0), "Invalid token address");
         require(
             address(vestingTokens[_tokenAddress].token) == address(0),
@@ -312,7 +341,9 @@ contract VestingExecutor is Ownable {
 
         vestingTokens[_tokenAddress] = VestingTokens({
             token: IERC20(_tokenAddress),
-            decimals: _decimals
+            decimals: _decimals,
+            price: _price,
+            numDecimals: _numDecimals
         });
     }
 
@@ -388,6 +419,8 @@ contract VestingExecutor is Ownable {
         purchaseAmountThreshold = _threshold;
     }
 
+    /* ========== Set Vesting Exchange Rate ========== */
+
     /**
      * @notice Sets the swap ratio for the vesting to swap token conversion
      * @dev Can only be executed by the owner of the contract
@@ -402,17 +435,6 @@ contract VestingExecutor is Ownable {
         ratioDenominator = _ratioDenominator;
     }
 
-    /* ========== Set Vesting Token Price and Exchange Rates ========== */
-
-    /**
-     * @notice Sets the price of the vesting token.
-     * @dev Allows the owner of the contract to set a new price for the vesting token.
-     * @param _price The new price of the vesting token.
-     */
-    function setVestingTokenPrice(uint256 _price) public onlyOwner {
-        vestingTokenPrice = _price;
-    }
-
     /* ========== Purchase and Vesting Functions ========== */
 
     /**
@@ -425,23 +447,44 @@ contract VestingExecutor is Ownable {
     }
 
     /**
+     * @notice Adjust the amount from the scale of the source decimal to the destination decimal
+     * @dev This function handles the case where the decimal numbers vary between two tokens.
+     * @param amount The source amount to be adjusted
+     * @param fromDecimals The decimal number of the source token
+     * @param toDecimals The decimal number of the destination token
+     * @return The amount adjusted to the destination decimal scale
+     */
+    function adjustDecimals(
+        uint256 amount,
+        uint256 fromDecimals,
+        uint256 toDecimals
+    ) public pure returns (uint256) {
+        if (fromDecimals == toDecimals) {
+            return amount;
+        } else if (fromDecimals > toDecimals) {
+            return amount / (10**(fromDecimals - toDecimals));
+        } else {
+            return amount * (10**(toDecimals - fromDecimals));
+        }
+    }
+
+    /**
      * @notice Allows user to purchase tokens with DAI or USDC, which are then vested.
      * @dev Tokens being bought must be either DAI or USDC. Transfers funds from purchaser to Treasury. Only available when vesting is active.
      * If the purchase amount meets the threshold, a portion of tokens is immediately released.
      * The rest of the tokens are vested; if not enough tokens are available to vest the transaction will revert.
-     * @param _buyTokenAmount The amount of tokens being bought
      * @param _vestingTokenPurchaseAmount The amount of vesting tokens to be purchased
      * @param _exchangeToken The token used for the purchase, either DAI or USDC
      * @param _vestingAsset The asset to be vested
      */
     function purchaseVestingToken(
-        uint256 _buyTokenAmount,
         uint256 _vestingTokenPurchaseAmount,
         address _exchangeToken,
         address _vestingAsset,
         VestingParams memory _vestingParams
     ) public payable whenVestingActive {
         // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
+
         require(
             _vestingParams.vestingWeeks > 0 &&
                 _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks,
@@ -453,44 +496,59 @@ contract VestingExecutor is Ownable {
             "Exchange token must be a valid approved token"
         );
 
-        uint256 requiredAmount = vestingTokenPrice
-            .mul(_vestingTokenPurchaseAmount)
-            .mul(purchaseTokens[_exchangeToken].decimals);
+        uint256 scaledBuyPrice = _vestingTokenPurchaseAmount
+            .mul(vestingTokens[_vestingAsset].price)
+            .div(10**4);
 
-        require(
-            _buyTokenAmount >= requiredAmount,
-            "Not enough token sent to exchange for vesting token"
+        //Calculate required amount of buy token
+
+        uint256 requiredBuyAmount = adjustDecimals(
+            scaledBuyPrice,
+            vestingTokens[_vestingAsset].numDecimals,
+            purchaseTokens[_exchangeToken].numDecimals
         );
 
-        emit processLog("Buy Token Amount Calculated", _buyTokenAmount);
-        emit processLog("Required Amount Calculated", requiredAmount);
+        emit processLog(
+            "Required Sell Token Payment Calculated",
+            requiredBuyAmount
+        );
+
+        require(
+            IERC20(_exchangeToken).balanceOf(msg.sender) >= requiredBuyAmount,
+            "Not enough tokens in wallet to exchange for vesting token"
+        );
 
         //Logic to determine if purchase amount meets threshold for immediate release of portion of vested token asset
 
         uint256 vestingAmount;
-        uint256 purchaseAmountCalc;
+        uint256 sellTokenAmountCalc;
 
-        // Calculate amount to release immediately to the purchaser
-        purchaseAmountCalc = _buyTokenAmount.div(
+        //Calculate sell token amount (to compare to purchase amount threshold)
+        sellTokenAmountCalc = requiredBuyAmount.div(
             purchaseTokens[_exchangeToken].decimals
         );
 
-        emit processLog("Purchase Amount Calculated", purchaseAmountCalc);
+        emit processLog(
+            "Scaled Down Amount of Sell Token Calculated",
+            sellTokenAmountCalc
+        );
 
         //Transfer funds from purchaser to Treasury
 
         IERC20(_exchangeToken).safeTransferFrom(
             msg.sender,
             TREASURY,
-            _buyTokenAmount
+            requiredBuyAmount
         );
 
-        // Complete vesting operations
+        // Complete vesting operations //
 
-        if (purchaseAmountCalc >= purchaseAmountThreshold) {
-            uint256 amountToRelease = _vestingTokenPurchaseAmount
-                .mul(releasePercentage)
-                .div(100);
+        if (sellTokenAmountCalc >= purchaseAmountThreshold) {
+            uint256 amountToRelease = (
+                _vestingTokenPurchaseAmount
+                    .div(vestingTokens[_vestingAsset].decimals)
+                    .mul(releasePercentage)
+            ).div(100);
 
             emit processLog("Amount to Release Calculated", amountToRelease);
 
@@ -504,17 +562,19 @@ contract VestingExecutor is Ownable {
             }
 
             // Calculate the remaining amount to vest
-            vestingAmount = _vestingTokenPurchaseAmount
-                .mul(vestingTokens[_vestingAsset].decimals)
-                .sub(
-                    amountToRelease.mul(vestingTokens[_vestingAsset].decimals)
-                );
+            vestingAmount = _vestingTokenPurchaseAmount.sub(
+                amountToRelease.mul(vestingTokens[_vestingAsset].decimals)
+            );
             emit processLog("Vesting Amount Calculated", vestingAmount);
 
             // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
-            _vest(msg.sender, _buyTokenAmount, _vestingParams);
+            _vest(msg.sender, vestingAmount, _vestingParams);
 
             emit vestingTransactionComplete(msg.sender, vestingAmount);
+        } else {
+            vestingAmount = _vestingTokenPurchaseAmount;
+
+            _vest(msg.sender, vestingAmount, _vestingParams);
         }
     }
 
@@ -565,17 +625,20 @@ contract VestingExecutor is Ownable {
             "Vesting: invalid vesting params set"
         );
 
+        // Check that swap token is authorized
         require(
             authorizedSwapTokens[tokenToSwap].token != IERC20(address(0)),
             "Token must be authorized swap token"
         );
 
+        // Calculate amount to vest
         uint256 vestingAmount = swapTokenAmount.mul(ratioNumerator).div(
             ratioDenominator
         );
 
         emit processLog("Vesting Amount Calculated", vestingAmount);
 
+        // Scale swap token and transfer asset
         uint256 swapTokenAmountScaled = swapTokenAmount.mul(
             authorizedSwapTokens[tokenToSwap].decimals
         );
@@ -588,9 +651,14 @@ contract VestingExecutor is Ownable {
 
         emit processLog("Swap Token Transfered", swapTokenAmountScaled);
 
-        _vest(vestor, vestingAmount, _vestingParams);
+        // Scale vesting token and vest asset
+        uint256 vestingAmountScaled = vestingAmount.mul(
+            vestingTokens[_vestingParams.asset].decimals
+        );
 
-        emit vestingTransactionComplete(msg.sender, vestingAmount);
+        _vest(vestor, vestingAmountScaled, _vestingParams);
+
+        emit vestingTransactionComplete(msg.sender, vestingAmountScaled);
     }
 
     /**
@@ -626,8 +694,9 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Allows claim of vested tokens
-     * @dev Uses vestingManager to process the claim
+     * @notice Allows claim of vested tokens; 
+     * @dev Uses vestingManager to process the claim; 
+     Vesting Executor claims on behalf of vestor and tokens are sent to vestor's account
      * @param scheduleId The ID of the vesting schedule
      * @param vestor The address of the vestor
      */
