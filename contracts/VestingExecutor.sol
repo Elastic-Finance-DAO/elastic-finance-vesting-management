@@ -141,7 +141,7 @@ contract VestingExecutor is Ownable {
     /* ========== Views ========== */
 
     /**
-     * @notice Fetches locked amount of a specific asset.
+     * @notice Fetches locked amount of a specific asset (how many tokens locked overall for vesting)
      * @param assetAddress The address of the asset.
      * @return The amount of the asset currently locked.
      */
@@ -496,12 +496,12 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Allows user to purchase tokens with DAI or USDC, which are then vested.
-     * @dev Tokens being bought must be either DAI or USDC. Transfers funds from purchaser to Treasury. Only available when vesting is active.
+     * @notice Allows user to purchase tokens with DAI or USDC, or another approved asset, which are then vested.
+     * @dev Tokens being used for purchase must be approved. Transfers funds from purchaser to Treasury. Only available when vesting is active.
      * If the purchase amount meets the threshold, a portion of tokens is immediately released.
      * The rest of the tokens are vested; if not enough tokens are available to vest the transaction will revert.
      * @param _vestingTokenPurchaseAmount The amount of vesting tokens to be purchased
-     * @param _exchangeToken The token used for the purchase, either DAI or USDC
+     * @param _exchangeToken The token used for the purchase, either DAI or USDC, or another approved token
      * @param _vestingAsset The asset to be vested
      */
     function purchaseVestingToken(
