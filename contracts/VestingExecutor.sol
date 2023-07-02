@@ -5,7 +5,6 @@ pragma solidity 0.8.9;
 import "./VestingManager.sol";
 import "./TokenLock.sol";
 
-
 /**
  * Vesting Executor contract interacts with, and is the owner, of Vesting Manager. 
  Contract executes:
@@ -583,7 +582,7 @@ contract VestingExecutor is Ownable {
     }
 
     /**
-     * @notice Sets up a standard token vesting schedule for the provided vestor
+     * @notice Sets up a token vesting schedule for the provided vestor
      * @dev Available only when vesting is active and only the owner can execute this function.
      *      If not enough tokens are available to vest, the transaction will be reverted.
      * @param vestor The address of the wallet to receive vesting tokens
