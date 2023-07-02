@@ -658,137 +658,121 @@ def isolation(fn_isolation):
 #         print(standard_vesting_transaction.events)
 
 # Swap asset for vested asset (includes setting swap ratio), used to swap old asset for new asset and vest
-# def test_swap_and_vest(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys, chain):
+# Asset is deposited into the Token Lock contract
+def test_swap_and_vest(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys, chain):
 
-#     ## Test Setup ##
+    ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     # Swap Status
+    # Swap Status
 
-#     swap_status = 0  # Active
+    swap_status = 0  # Active
 
-#     vesting_executor.setSwappingStatus(swap_status)  # Set status
+    vesting_executor.setSwappingStatus(swap_status)  # Set status
 
-#     swapping_status = vesting_executor.getCurrentSwappingStatus()  # Check status
+    swapping_status = vesting_executor.getCurrentSwappingStatus()  # Check status
 
-#     assert swap_status == swapping_status, "Swapping status not set to active"
+    assert swap_status == swapping_status, "Swapping status not set to active"
 
-#     # Swap Ratio
+    # Swap Ratio
 
-#     swap_ratio_numerator = 1
+    swap_ratio = 0.25
+    
+    swap_ratio_scaled = 0.25 * 10 ** 4
 
-#     swap_ratio_denominator = 4
+    vesting_executor.setSwapRatio(swap_ratio_scaled, {"from": accounts[1]})
 
-#     vesting_executor.setSwapRatio(swap_ratio_numerator, swap_ratio_denominator, {"from": accounts[1]})
+    contract_swap_ratio = vesting_executor.swapRatio()
+    
+    assert (
+        contract_swap_ratio == swap_ratio_scaled
+    ), "Swap ratio not set properly" 
 
-#     contract_swap_ratio = (
-#         vesting_executor.ratioNumerator(),
-#         vesting_executor.ratioDenominator(),
-#     )
+    # Add Authorized Swap Token
 
-#     assert (
-#         contract_swap_ratio[0] == swap_ratio_numerator
-#     ), "Swap ratio numerator not set properly"
-#     assert (
-#         contract_swap_ratio[1] == swap_ratio_denominator
-#     ), "Swap ratio demominator not set properly"
+    swap_token_address = eefi_contract.address
 
-#     # Add Authorized Swap Token
+    swap_token_decimals = 10**18
 
-#     swap_token_address = eefi_contract.address
+    set_swap_token = vesting_executor.addAuthorizedSwapToken(
+        swap_token_address, swap_token_decimals, {"from": accounts[1]}
+    )
 
-#     swap_token_decimals = 10**18
+    swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
 
-#     set_swap_token = vesting_executor.addAuthorizedSwapToken(
-#         swap_token_address, swap_token_decimals, {"from": accounts[1]}
-#     )
-
-#     swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
-
-#     assert (
-#         swap_token_details[0] == swap_token_address
-#     ), "Swap token address not set properly"
-#     assert (
-#         swap_token_details[1] == swap_token_decimals
-#     ), "Swap token decimals not set properly"
+    assert (
+        swap_token_details[0] == swap_token_address
+    ), "Swap token address not set properly"
+    assert (
+        swap_token_details[1] == swap_token_decimals
+    ), "Swap token decimals not set properly"
 
 
-#     # Add Vesting Token
+    # Add Vesting Token
 
-#     set_vesting_token = set_vesting_token
+    set_vesting_token = set_vesting_token
 
-#     vesting_token_details = vesting_executor.vestingTokens(vesting_token_address)
+    # Swap Transaction
 
-#     assert (
-#         vesting_token_details[0] == vesting_token_address
-#     ), "Vesting token address not set properly"
-#     assert (
-#         vesting_token_details[1] == vesting_token_decimals
-#     ), "Vesting token decimals not set properly"
+    vestor_address = accounts[0].address
 
-#     # Swap Transaction
+    swap_token_amount = 852.36585
 
-#     vestor_address = accounts[0].address
+    swap_token_decimals = 10**18
 
-#     swap_token_amount = 100
+    token_to_swap = eefi_contract.address
 
-#     swap_token_decimals = 10**18
+    eefi_approval = 1000 * 10**18
+    
+    vesting_token_decimals = 10**18
 
-#     token_to_swap = eefi_contract.address
+    eefi_approval_tx = eefi_contract.approve(
+        vesting_executor_address, eefi_approval, {"from": eefi_whale}
+    )
 
-#     eefi_approval = 200 * 10**18
+    swap_and_vest_transaction = vesting_executor.swapAndVest(
+        swap_token_amount * swap_token_decimals,
+        token_to_swap,
+        vesting_params_list,
+        {"from": eefi_whale},
+    )
 
-#     eefi_approval_tx = eefi_contract.approve(
-#         vesting_executor_address, eefi_approval, {"from": eefi_whale}
-#     )
+    expected_vested_token_amount = (swap_token_amount * swap_ratio) 
+    contract_vested_token_amount = int(swap_and_vest_transaction.events[-2]['amount']) / vesting_token_decimals
 
-#     vesting_params_list
-
-#     swap_and_vest_transaction = vesting_executor.swapAndVest(
-#         vestor_address,
-#         swap_token_amount,
-#         token_to_swap,
-#         vesting_params_list,
-#         {"from": eefi_whale},
-#     )
-
-
-#     swap_ratio = 0.25
-#     expected_vested_token_amount = (swap_token_amount * swap_ratio) * vesting_token_decimals
-#     contract_vested_token_amount = int(swap_and_vest_transaction.events[-2]['amount'])
-
-#     assert expected_vested_token_amount == contract_vested_token_amount, "Expected vested amount not vested"
-
-#     with capsys.disabled():
-#         print(swap_and_vest_transaction.info())
-#         print(contract_swap_ratio)
+    assert math.isclose(
+            expected_vested_token_amount, contract_vested_token_amount, rel_tol=0.005
+        ), f"The amount vested ({contract_vested_token_amount}) and the expected amount ({expected_vested_token_amount}) are not as close as expected."
+    
+    with capsys.disabled():
+        print(swap_and_vest_transaction.info())
 
 # Purchase is less than purchase price threshold (no bonus provided)
 # def test_purchase_vesting_token_purchase_price_lower_than_threshold(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
@@ -1500,185 +1484,177 @@ def isolation(fn_isolation):
 #         )
 
 # Can't swap when swapping is paused.
-# def test_swap_and_vest_when_paused(vesting_manager, main, capsys, chain):
+def test_swap_and_vest_when_paused(vesting_manager, main, capsys, chain):
 
-#     ## Test Setup ##
+    ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     asset_address = eefi_contract.address
-#     is_fixed = False
-#     cliff_weeks = 52  # 1 year
-#     vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
-#     start_time = time.time()  # Current time in UNIX
+    asset_address = eefi_contract.address
+    is_fixed = False
+    cliff_weeks = 52  # 1 year
+    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    start_time = time.time()  # Current time in UNIX
 
-#     vesting_params_list = [
-#         asset_address,
-#         is_fixed,
-#         cliff_weeks,
-#         vesting_weeks,
-#         start_time,
-#     ]
+    vesting_params_list = [
+        asset_address,
+        is_fixed,
+        cliff_weeks,
+        vesting_weeks,
+        start_time,
+    ]
 
-#     ## Test Actions ##
+    ## Test Actions ##
 
-#     # Swap Ratio
+    # Swap Ratio
 
-#     swap_ratio_numerator = 1
+    swap_ratio = 0.25
+    
+    swap_ratio_scaled = 0.25 * 10 ** 4
 
-#     swap_ratio_demoniator = 4
+    vesting_executor.setSwapRatio(swap_ratio_scaled, {"from": accounts[1]})
 
-#     vesting_executor.setSwapRatio(swap_ratio_numerator, swap_ratio_demoniator, {"from": accounts[1]})
+    contract_swap_ratio = vesting_executor.swapRatio()
 
-#     contract_swap_ratio = (
-#         vesting_executor.ratioNumerator(),
-#         vesting_executor.ratioDenominator(),
-#     )
+    # Add Authorized Swap Token
 
-#     # Add Authorized Swap Token
+    swap_token_address = eefi_contract.address
 
-#     swap_token_address = eefi_contract.address
+    swap_token_decimals = 10**18
 
-#     swap_token_decimals = 10**18
+    set_swap_token = vesting_executor.addAuthorizedSwapToken(
+        swap_token_address, swap_token_decimals, {"from": accounts[1]}
+    )
 
-#     set_swap_token = vesting_executor.addAuthorizedSwapToken(
-#         swap_token_address, swap_token_decimals, {"from": accounts[1]}
-#     )
+    swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
 
-#     swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
+    # Swap Transaction
 
-#     # Swap Transaction
+    swap_token_amount = 100 * 10 ** 18
 
-#     vestor_address = accounts[0].address
+    swap_token_decimals = 10**18
+    
+    swap_token_amount_scaled = swap_token_amount * swap_token_decimals
 
-#     swap_token_amount = 100
+    token_to_swap = eefi_contract.address
 
-#     swap_token_decimals = 10**18
+    eefi_approval = 200 * 10**18
 
-#     token_to_swap = eefi_contract.address
+    eefi_approval_tx = eefi_contract.approve(
+        vesting_executor_address, eefi_approval, {"from": eefi_whale}
+    )
 
-#     eefi_approval = 200 * 10**18
+    with brownie.reverts("Swapping not active"):
 
-#     eefi_approval_tx = eefi_contract.approve(
-#         vesting_executor_address, eefi_approval, {"from": eefi_whale}
-#     )
+        swap_and_vest_transaction = vesting_executor.swapAndVest(
+            swap_token_amount_scaled,
+            token_to_swap,
+            vesting_params_list,
+            {"from": eefi_whale},
+        )
 
-#     with brownie.reverts("Swapping not active"):
-
-#         swap_and_vest_transaction = vesting_executor.swapAndVest(
-#             vestor_address,
-#             swap_token_amount,
-#             token_to_swap,
-#             vesting_params_list,
-#             {"from": eefi_whale},
-#         )
-
-#     with capsys.disabled():
-#         print("Swap transaction should fail because swapping is not active.")
+    with capsys.disabled():
+        print("Swap transaction should fail because swapping is not active.")
 
 
 # #Can't swap with unapproved swapping asset
-# def test_swap_and_vest_with_non_approved_asset(standard_vesting_parameters, vesting_manager, main, capsys, chain):
+def test_swap_and_vest_with_non_approved_asset(standard_vesting_parameters, vesting_manager, main, capsys, chain):
 
-#     ## Test Setup ##
+    ## Test Setup ##
 
-#     # Contracts #
+    # Contracts #
 
-#     vesting_executor = main
+    vesting_executor = main
 
-#     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-#     vesting_executor_address = vesting_executor.address
+    vesting_executor_address = vesting_executor.address
 
-#     vesting_manager_address = vesting_manager
+    vesting_manager_address = vesting_manager
 
-#     # Transfer EEFI #
+    # Transfer EEFI #
 
-#     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-#     transfer_amount = 5000 * 10**18
+    transfer_amount = 5000 * 10**18
 
-#     eefi_contract.transfer(
-#         vesting_manager_address, transfer_amount, {"from": eefi_whale}
-#     )
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
 
-#     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
 
-#     # Set up Vesting Parameters #
+    # Set up Vesting Parameters #
 
-#     vesting_params_list = standard_vesting_parameters
+    vesting_params_list = standard_vesting_parameters
 
-#     # Swap Status
+    # Swap Status
 
-#     swap_status = 0  # Active
+    swap_status = 0  # Active
 
-#     vesting_executor.setSwappingStatus(swap_status, {"from": accounts[1]})  # Set status
+    vesting_executor.setSwappingStatus(swap_status, {"from": accounts[1]})  # Set status
 
-#     # Swap Ratio
+    # Swap Ratio
 
-#     swap_ratio_numerator = 1
+    swap_ratio = 0.25
+    
+    swap_ratio_scaled = 0.25 * 10 ** 4
 
-#     swap_ratio_demoniator = 4
+    vesting_executor.setSwapRatio(swap_ratio_scaled, {"from": accounts[1]})
 
-#     vesting_executor.setSwapRatio(swap_ratio_numerator, swap_ratio_demoniator, {"from": accounts[1]})
+    contract_swap_ratio = vesting_executor.swapRatio()
 
-#     contract_swap_ratio = (
-#         vesting_executor.ratioNumerator(),
-#         vesting_executor.ratioDenominator(),
-#     )
+    # Swap Transaction
 
-#     # Swap Transaction
+    swap_token_amount = 100
 
-#     vestor_address = accounts[0].address
+    swap_token_decimals = 10**18
+    
+    swap_token_amount_scaled = swap_token_amount * swap_token_decimals
 
-#     swap_token_amount = 100
+    token_to_swap = eefi_contract.address
 
-#     swap_token_decimals = 10**18
+    eefi_approval = 200 * 10**18
 
-#     token_to_swap = eefi_contract.address
+    eefi_approval_tx = eefi_contract.approve(
+        vesting_executor_address, eefi_approval, {"from": eefi_whale}
+    )
 
-#     eefi_approval = 200 * 10**18
+    ## Test Actions ##
 
-#     eefi_approval_tx = eefi_contract.approve(
-#         vesting_executor_address, eefi_approval, {"from": eefi_whale}
-#     )
+    with brownie.reverts("Token must be authorized swap token"):
 
-#     ## Test Actions ##
+        swap_and_vest_transaction = vesting_executor.swapAndVest(
+            swap_token_amount_scaled,
+            token_to_swap,
+            vesting_params_list,
+            {"from": eefi_whale},
+        )
 
-#     with brownie.reverts("Token must be authorized swap token"):
-
-#         swap_and_vest_transaction = vesting_executor.swapAndVest(
-#             vestor_address,
-#             swap_token_amount,
-#             token_to_swap,
-#             vesting_params_list,
-#             {"from": eefi_whale},
-#         )
-
-#     with capsys.disabled():
-#         print("Swap transaction should fail because swap token is not authorized.")
+    with capsys.disabled():
+        print("Swap transaction should fail because swap token is not authorized.")
 
 # #Can't vest with incorrect vesting parameters
 # def test_standard_vesting_incorrect_parameters(vesting_manager, main, capsys):

@@ -3,12 +3,14 @@
 pragma solidity 0.8.9;
 
 import "./VestingManager.sol";
+import "./TokenLock.sol";
+
 
 /**
  * Vesting Executor contract interacts with, and is the owner, of Vesting Manager. 
  Contract executes:
-- Purchasing of vested tokens at varying prices. After purchase, asset is vested on behalf of user.
-- Swapping of asset for a vested asset (at a pre-defined ratio). After swap, asset is vested on behalf of swapper
+- Purchasing of vested tokens at varying prices. After purchase, asset is vested on behalf of user
+- Swapping of asset for a vested asset (at a pre-defined ratio); after swap, asset is vested on behalf of swapper
 - Standard vesting transaction: Assign a vesting schedule to an account 
 - Cancellation of individual vesting schedules (limited to multisig)
 - Withdrawal of unlocked tokens from Vesting Manager account (limited to multisig)
@@ -34,9 +36,9 @@ contract VestingExecutor is Ownable {
     uint256 public releasePercentage; // Percentage of total amount that will be released
     address public authorizedSwapTokenAddress; //Token that can be swapped for vesting token (which will be vested on behalf of the user)
     IERC20 public swapToken = IERC20(authorizedSwapTokenAddress);
-    uint256 public ratioNumerator; // Numerator of ratio that will determine how many swap tokens can be exchanged for vesting tokens
-    uint256 public ratioDenominator; // Denominator of ratio that will determine how many swap tokens can be exchanged for vesting tokens
+    uint256 public swapRatio; // Ratio that will determine how many swap tokens can be exchanged for vesting tokens
     VestingManager public vestingManager; // Vesting Manager contract
+    TokenLock public tokenLock; // Contract where swapped tokens are deposited; Contract has no owner or withdraw functions
 
     /* ========== Structs ========== */
 
@@ -116,6 +118,7 @@ contract VestingExecutor is Ownable {
     constructor() {
         // Deploy a new instance of VestingManager, setting VestingExecutor (this contract) as the owner
         vestingManager = new VestingManager(address(this));
+        tokenLock = new TokenLock();
 
         // Add initial valid purchase tokens to list
         purchaseTokens[
@@ -139,15 +142,15 @@ contract VestingExecutor is Ownable {
 
     /**
      * @notice Fetches locked amount of a specific asset.
-     * @param _assetAddress The address of the asset.
+     * @param assetAddress The address of the asset.
      * @return The amount of the asset currently locked.
      */
-    function viewLockedAmount(address _assetAddress)
+    function viewLockedAmount(address assetAddress)
         public
         view
         returns (uint256)
     {
-        return vestingManager.getLockedAmount(_assetAddress);
+        return vestingManager.getLockedAmount(assetAddress);
     }
 
     /**
@@ -227,10 +230,10 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Changes the vesting status of the contract
      * @dev Can only be called by the contract owner. Changes the status to the input value
-     * @param _value The new vesting status
+     * @param value The new vesting status
      */
-    function setVestingStatus(uint256 _value) public onlyOwner {
-        current_vesting_status = vestingStatus(_value);
+    function setVestingStatus(uint256 value) public onlyOwner {
+        current_vesting_status = vestingStatus(value);
     }
 
     /**
@@ -258,10 +261,10 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Changes the swapping status of the contract
      * @dev Can only be called by the contract owner. Changes the status to the input value
-     * @param _value The new swapping status
+     * @param value The new swapping status
      */
-    function setSwappingStatus(uint256 _value) public onlyOwner {
-        current_swapping_status = swappingStatus(_value);
+    function setSwappingStatus(uint256 value) public onlyOwner {
+        current_swapping_status = swappingStatus(value);
     }
 
     /**
@@ -281,40 +284,40 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Adds a new token to the approved purchase tokens list
      * @dev Can only be called by the contract owner. Reverts if the token already exists on the list or if the address is invalid
-     * @param _tokenAddress The address of the new token to add
-     * @param _decimals The decimals of the new token
-     * @param _numDecimals Decimals of the token
+     * @param tokenAddress The address of the new token to add
+     * @param decimals The decimals of the new token
+     * @param numDecimals Decimals of the token
      */
     function addPurchaseToken(
-        address _tokenAddress,
-        uint256 _decimals,
-        uint256 _numDecimals
+        address tokenAddress,
+        uint256 decimals,
+        uint256 numDecimals
     ) public onlyOwner {
-        require(_tokenAddress != address(0), "Invalid token address");
+        require(tokenAddress != address(0), "Invalid token address");
         require(
-            address(purchaseTokens[_tokenAddress].token) == address(0),
+            address(purchaseTokens[tokenAddress].token) == address(0),
             "Purchase token on list"
         );
 
-        purchaseTokens[_tokenAddress] = approvedPurchaseTokens({
-            token: IERC20(_tokenAddress),
-            decimals: _decimals,
-            numDecimals: _numDecimals
+        purchaseTokens[tokenAddress] = approvedPurchaseTokens({
+            token: IERC20(tokenAddress),
+            decimals: decimals,
+            numDecimals: numDecimals
         });
     }
 
     /**
      * @notice Removes a token from the approved purchase tokens list
      * @dev Can only be called by the contract owner. Reverts if the token is not currently on the list.
-     * @param _tokenAddress The address of the token to remove
+     * @param tokenAddress The address of the token to remove
      */
-    function removePurchaseToken(address _tokenAddress) public onlyOwner {
+    function removePurchaseToken(address tokenAddress) public onlyOwner {
         require(
-            address(purchaseTokens[_tokenAddress].token) != address(0),
+            address(purchaseTokens[tokenAddress].token) != address(0),
             "Purchase token not on list"
         );
 
-        delete purchaseTokens[_tokenAddress];
+        delete purchaseTokens[tokenAddress];
     }
 
     /* ========== Set/Get Approved Vesting Tokens ========== */
@@ -322,43 +325,43 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Adds a new token to the approved vesting tokens list
      * @dev Can only be called by the contract owner. Reverts if the token already exists on the list or if the address is invalid
-     * @param _tokenAddress The address of the new token to add
-     * @param _decimals The decimals of the new token
-     * @param _price The USD price of the new token (scale price by 10^4)
-     * @param _numDecimals Decimals of the token
+     * @param tokenAddress The address of the new token to add
+     * @param decimals The decimals of the new token
+     * @param price The USD price of the new token (multiply by 10^4 before sending to contract)
+     * @param numDecimals Decimals of the token
      */
     function addVestingToken(
-        address _tokenAddress,
-        uint256 _decimals,
-        uint256 _price,
-        uint256 _numDecimals
+        address tokenAddress,
+        uint256 decimals,
+        uint256 price,
+        uint256 numDecimals
     ) public onlyOwner {
-        require(_tokenAddress != address(0), "Invalid token address");
+        require(tokenAddress != address(0), "Invalid token address");
         require(
-            address(vestingTokens[_tokenAddress].token) == address(0),
+            address(vestingTokens[tokenAddress].token) == address(0),
             "Vesting token on list"
         );
 
-        vestingTokens[_tokenAddress] = VestingTokens({
-            token: IERC20(_tokenAddress),
-            decimals: _decimals,
-            price: _price,
-            numDecimals: _numDecimals
+        vestingTokens[tokenAddress] = VestingTokens({
+            token: IERC20(tokenAddress),
+            decimals: decimals,
+            price: price,
+            numDecimals: numDecimals
         });
     }
 
     /**
      * @notice Removes a token from the approved vesting tokens list
      * @dev Can only be called by the contract owner. Reverts if the token is not currently on the list.
-     * @param _tokenAddress The address of the token to remove
+     * @param tokenAddress The address of the token to remove
      */
-    function removeVestingToken(address _tokenAddress) public onlyOwner {
+    function removeVestingToken(address tokenAddress) public onlyOwner {
         require(
-            address(vestingTokens[_tokenAddress].token) != address(0),
+            address(vestingTokens[tokenAddress].token) != address(0),
             "Vesting token on list"
         );
 
-        delete vestingTokens[_tokenAddress];
+        delete vestingTokens[tokenAddress];
     }
 
     /* ========== Set/Get Approved Swap Tokens ========== */
@@ -366,37 +369,37 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Adds a new token to the authorized swap tokens list
      * @dev Can only be called by the contract owner. Reverts if the token already exists on the list or if the address is invalid
-     * @param _tokenAddress The address of the new token to add
-     * @param _decimals The decimals of the new token
+     * @param tokenAddress The address of the new token to add
+     * @param decimals The decimals of the new token
      */
-    function addAuthorizedSwapToken(address _tokenAddress, uint256 _decimals)
+    function addAuthorizedSwapToken(address tokenAddress, uint256 decimals)
         public
         onlyOwner
     {
-        require(_tokenAddress != address(0), "Invalid token address");
+        require(tokenAddress != address(0), "Invalid token address");
         require(
-            address(authorizedSwapTokens[_tokenAddress].token) == address(0),
+            address(authorizedSwapTokens[tokenAddress].token) == address(0),
             "Swap token on list"
         );
 
-        authorizedSwapTokens[_tokenAddress] = AuthorizedSwapTokens({
-            token: IERC20(_tokenAddress),
-            decimals: _decimals
+        authorizedSwapTokens[tokenAddress] = AuthorizedSwapTokens({
+            token: IERC20(tokenAddress),
+            decimals: decimals
         });
     }
 
     /**
      * @notice Removes a token from the authorized swap tokens list
      * @dev Can only be called by the contract owner. Reverts if the token is not currently on the list.
-     * @param _tokenAddress The address of the token to remove
+     * @param tokenAddress The address of the token to remove
      */
-    function removeAuthorizedSwapToken(address _tokenAddress) public onlyOwner {
+    function removeAuthorizedSwapToken(address tokenAddress) public onlyOwner {
         require(
-            address(authorizedSwapTokens[_tokenAddress].token) != address(0),
+            address(authorizedSwapTokens[tokenAddress].token) != address(0),
             "Swap token not on list"
         );
 
-        delete authorizedSwapTokens[_tokenAddress];
+        delete authorizedSwapTokens[tokenAddress];
     }
 
     /* ========== Set Vesting Parameters ========== */
@@ -413,10 +416,10 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Sets the threshold for the amount of vesting tokens to be purchased.
      * @dev Allows the owner to set a threshold for vesting token purchase. If a user's purchase amount exceeds this threshold, a specified percentage of purchased tokens will be instantly transferred to the user.
-     * @param _threshold The new threshold for the amount of vesting tokens to be purchased.
+     * @param threshold The new threshold for the amount of vesting tokens to be purchased.
      */
-    function setPurchaseAmountThreshold(uint256 _threshold) public onlyOwner {
-        purchaseAmountThreshold = _threshold;
+    function setPurchaseAmountThreshold(uint256 threshold) public onlyOwner {
+        purchaseAmountThreshold = threshold;
     }
 
     /* ========== Set Vesting Exchange Rate ========== */
@@ -424,15 +427,14 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Sets the swap ratio for the vesting to swap token conversion
      * @dev Can only be executed by the owner of the contract
-     * @param _ratioNumerator The numerator part of the ratio
-     * @param _ratioDenominator The denominator part of the ratio
+     * @param _ratio The ratio (multiply by 10^4 before sending to contract)
      */
-    function setSwapRatio(uint256 _ratioNumerator, uint256 _ratioDenominator)
+    function setSwapRatio(uint256 _ratio)
         public
         onlyOwner
     {
-        ratioNumerator = _ratioNumerator;
-        ratioDenominator = _ratioDenominator;
+        swapRatio = _ratio;
+
     }
 
     /* ========== Purchase and Vesting Functions ========== */
@@ -509,7 +511,7 @@ contract VestingExecutor is Ownable {
         );
 
         emit processLog(
-            "Required Sell Token Payment Calculated",
+            "Required Sell Token Payment Amount Calculated",
             requiredBuyAmount
         );
 
@@ -575,6 +577,8 @@ contract VestingExecutor is Ownable {
             vestingAmount = _vestingTokenPurchaseAmount;
 
             _vest(msg.sender, vestingAmount, _vestingParams);
+
+            emit vestingTransactionComplete(msg.sender, vestingAmount);
         }
     }
 
@@ -582,7 +586,7 @@ contract VestingExecutor is Ownable {
      * @notice Sets up a standard token vesting schedule for the provided vestor
      * @dev Available only when vesting is active and only the owner can execute this function.
      *      If not enough tokens are available to vest, the transaction will be reverted.
-     * @param vestor The address of the participant in the vesting process
+     * @param vestor The address of the wallet to receive vesting tokens
      * @param amount The amount of tokens to be vested for the participant
      */
     function standardVesting(
@@ -606,18 +610,20 @@ contract VestingExecutor is Ownable {
     /**
      * @notice Swaps a specified amount of tokens for a corresponding amount of vesting tokens, then vests those tokens to a specified address.
      * @dev Can only be called when swapping is active. Tokens to be swapped must be the authorized swap token.
-     * Swapped tokens are sent to the burn address.
+     * Swapped tokens are sent to the Token Lock contract
      * If not enough tokens are available to vest, the transaction will revert.
-     * @param vestor The address that will receive the vested tokens
      * @param swapTokenAmount The amount of swap tokens to be swapped and burned
      * @param tokenToSwap The token that is being swapped. Must be the authorized swap token.
      */
     function swapAndVest(
-        address vestor,
         uint256 swapTokenAmount,
         address tokenToSwap,
         VestingParams memory _vestingParams
     ) public whenSwappingActive {
+        
+        //Set vestor address to msg sender
+        address vestor = msg.sender;
+        
         // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
         require(
             _vestingParams.vestingWeeks > 0 &&
@@ -632,33 +638,24 @@ contract VestingExecutor is Ownable {
         );
 
         // Calculate amount to vest
-        uint256 vestingAmount = swapTokenAmount.mul(ratioNumerator).div(
-            ratioDenominator
-        );
-
+        uint256 vestingAmount = swapTokenAmount.mul(swapRatio).div(10**4);
         emit processLog("Vesting Amount Calculated", vestingAmount);
 
-        // Scale swap token and transfer asset
-        uint256 swapTokenAmountScaled = swapTokenAmount.mul(
-            authorizedSwapTokens[tokenToSwap].decimals
-        );
-
+        // Transfer tokens to TokenLock contract
         authorizedSwapTokens[tokenToSwap].token.safeTransferFrom(
             msg.sender,
             address(this),
-            swapTokenAmountScaled
+            swapTokenAmount
         );
 
-        emit processLog("Swap Token Transfered", swapTokenAmountScaled);
+        _transferERC20(IERC20(tokenToSwap), address(tokenLock), swapTokenAmount);
 
-        // Scale vesting token and vest asset
-        uint256 vestingAmountScaled = vestingAmount.mul(
-            vestingTokens[_vestingParams.asset].decimals
-        );
+        emit processLog("Swap Token Transfered", swapTokenAmount);
 
-        _vest(vestor, vestingAmountScaled, _vestingParams);
+        // Vest tokens on behalf of user 
+        _vest(vestor, vestingAmount, _vestingParams);
 
-        emit vestingTransactionComplete(msg.sender, vestingAmountScaled);
+        emit vestingTransactionComplete(vestor, vestingAmount);
     }
 
     /**
