@@ -22,7 +22,7 @@ Contract allows for multiple:
 - Tokens to be used to swap for vested assets 
  */
 
-contract VestingExecutor is Ownable {
+contract VestingExecutor is Ownable, ReentrancyGuard {
     using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
@@ -509,7 +509,7 @@ contract VestingExecutor is Ownable {
         address _exchangeToken,
         address _vestingAsset,
         VestingParams memory _vestingParams
-    ) public payable whenVestingActive {
+    ) public payable whenVestingActive nonReentrant {
         // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
 
         require(
@@ -644,7 +644,7 @@ contract VestingExecutor is Ownable {
         uint256 swapTokenAmount,
         address tokenToSwap,
         VestingParams memory _vestingParams
-    ) public whenSwappingActive {
+    ) public whenSwappingActive nonReentrant {
         //Set vestor address to msg sender
         address vestor = msg.sender;
 
