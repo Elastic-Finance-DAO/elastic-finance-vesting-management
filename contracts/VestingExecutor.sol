@@ -58,6 +58,15 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
     VestingParams public vestingParams;
 
+    struct ValidVestingParams {
+        uint256 purchaseCliffWeeks;
+        uint256 purchaseVestingWeeks;
+        uint256 swapCliffWeeks;
+        uint256 swapVestingWeeks;
+    }
+
+    ValidVestingParams public validVestingParams;
+
     /**
      * @dev Struct to represent approved purchase tokens
      * @param token IERC20 token that has been approved for purchase
@@ -225,6 +234,18 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
     /* ========== Manage Vesting/Swap Status ========== */
 
+    function setValidVestingParams(
+        uint256 _purchaseCliffWeeks,
+        uint256 _purchaseVestingWeeks,
+        uint256 _swapCliffWeeks,
+        uint256 _swapVestingWeeks
+    ) public onlyOwner {
+        validVestingParams.purchaseCliffWeeks = _purchaseCliffWeeks;
+        validVestingParams.purchaseVestingWeeks = _purchaseVestingWeeks;
+        validVestingParams.swapCliffWeeks = _swapCliffWeeks;
+        validVestingParams.swapVestingWeeks = _swapVestingWeeks;
+    }
+
     //Vesting status options
     enum vestingStatus {
         vestingActive, //0
@@ -293,7 +314,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     }
 
     //Default standard vesting status: Active
-    standardVestingStatus public current_standard_vesting_status = standardVestingStatus.standardVestingActive;
+    standardVestingStatus public current_standard_vesting_status =
+        standardVestingStatus.standardVestingActive;
 
     /**
      * @notice Changes the vesting status (for standard vesting) of the contract
@@ -310,12 +332,12 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
     modifier whenStandardVestingActive() {
         require(
-            current_standard_vesting_status == standardVestingStatus.standardVestingActive,
+            current_standard_vesting_status ==
+                standardVestingStatus.standardVestingActive,
             "Standard vesting not active"
         );
         _;
     }
-    
 
     //Token lock options
 
@@ -539,11 +561,16 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         address _vestingAsset,
         VestingParams memory _vestingParams
     ) public payable whenVestingActive nonReentrant {
-        // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
+        // Ensure cliff is shorter than vesting (vesting includes the cliff duration) and cliff + vesting weeks, ands start time are valid
 
         require(
             _vestingParams.vestingWeeks > 0 &&
-                _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks,
+                _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks &&
+                _vestingParams.vestingWeeks >=
+                validVestingParams.purchaseVestingWeeks &&
+                _vestingParams.cliffWeeks >=
+                validVestingParams.purchaseCliffWeeks &&
+                _vestingParams.startTime >= block.timestamp - 3 minutes,
             "Vesting: invalid vesting params set"
         );
 
@@ -677,11 +704,16 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         //Set vestor address to msg sender
         address vestor = msg.sender;
 
-        // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
+        // Ensure cliff is shorter than vesting (vesting includes the cliff duration) and cliff weeks, vesting weeks and start time are valid
         require(
             _vestingParams.vestingWeeks > 0 &&
-                _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks,
-            "Vesting: invalid vesting params set"
+                _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks &&
+                _vestingParams.cliffWeeks >=
+                validVestingParams.swapCliffWeeks &&
+                _vestingParams.vestingWeeks >=
+                validVestingParams.swapVestingWeeks &&
+                _vestingParams.startTime >= block.timestamp - 3 minutes,
+            "Vesting: not valid parameters"
         );
 
         // Check that swap token is authorized
