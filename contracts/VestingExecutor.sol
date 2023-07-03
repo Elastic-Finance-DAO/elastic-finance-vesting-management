@@ -58,6 +58,15 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
     VestingParams public vestingParams;
 
+    /**
+     * @notice Valid vesting params struct
+     * @dev This struct holds valid parameters for vesting.
+     * @param purchaseCliffWeeks The number of weeks that the cliff will be present at (purchases)
+     * @param purchaseVestingWeeks The number of weeks the tokens will vest over (linearly - purchases).
+     * @param swapCliffWeeks The number of weeks that the cliff will be present at (swaps)
+     * @param swapVestingWeeks The number of weeks the tokens will vest over (linearly - swaps)
+     */
+
     struct ValidVestingParams {
         uint256 purchaseCliffWeeks;
         uint256 purchaseVestingWeeks;
@@ -233,18 +242,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     }
 
     /* ========== Manage Vesting/Swap Status ========== */
-
-    function setValidVestingParams(
-        uint256 _purchaseCliffWeeks,
-        uint256 _purchaseVestingWeeks,
-        uint256 _swapCliffWeeks,
-        uint256 _swapVestingWeeks
-    ) public onlyOwner {
-        validVestingParams.purchaseCliffWeeks = _purchaseCliffWeeks;
-        validVestingParams.purchaseVestingWeeks = _purchaseVestingWeeks;
-        validVestingParams.swapCliffWeeks = _swapCliffWeeks;
-        validVestingParams.swapVestingWeeks = _swapVestingWeeks;
-    }
 
     //Vesting status options
     enum vestingStatus {
@@ -483,6 +480,27 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     }
 
     /* ========== Set Vesting Parameters ========== */
+
+    /**
+     * @notice Sets the valid vesting parameters
+     * @dev This function allows the owner to set the valid parameters for vesting.
+     * @param _purchaseCliffWeeks The number of weeks that the cliff will be present at for purchases
+     * @param _purchaseVestingWeeks The number of weeks the tokens will vest over linearly for purchases.
+     * @param _swapCliffWeeks The number of weeks that the cliff will be present at for swaps
+     * @param _swapVestingWeeks The number of weeks the tokens will vest over linearly for swaps.
+     */
+
+    function setValidVestingParams(
+        uint256 _purchaseCliffWeeks,
+        uint256 _purchaseVestingWeeks,
+        uint256 _swapCliffWeeks,
+        uint256 _swapVestingWeeks
+    ) public onlyOwner {
+        validVestingParams.purchaseCliffWeeks = _purchaseCliffWeeks;
+        validVestingParams.purchaseVestingWeeks = _purchaseVestingWeeks;
+        validVestingParams.swapCliffWeeks = _swapCliffWeeks;
+        validVestingParams.swapVestingWeeks = _swapVestingWeeks;
+    }
 
     /**
      * @notice Sets the release percentage for amount of vesting tokens that will immediately sent to users
