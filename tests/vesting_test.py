@@ -378,7 +378,7 @@ def test_vesting_cancellation_not_multisig(vesting_manager, main, capsys, chain)
         print("If failed, multisig modifier did not work")
 
 
-##### ----- Vesting Asset Purchases, Swaps and Standard Vesting  ----- #####
+#### ----- Vesting Asset Purchases, Swaps and Standard Vesting  ----- #####
 
 # Purchase vesting asset with USDC, release portion of vesting asset allocation to purchaser
 def test_purchase_vesting_token_usdc(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
@@ -1058,7 +1058,7 @@ def test_vesting_claim_standard_vest(vesting_manager, main, capsys, chain):
         print(account_claim_transaction.info())
         print(vestor_address)
 
-#Claim purchased asset after 1 year
+# #Claim purchased asset after 1 year
 def test_vesting_claim_purchase(set_vesting_token, vesting_manager, main, capsys, chain):
     # ## Test Setup ##
 
@@ -1531,7 +1531,7 @@ def test_purchase_vesting_token_non_approved_token(set_vesting_token, standard_v
     with capsys.disabled():
         print("Purchase should fail because LUSD not in approved tokens list")
 
-#Can't vest when vesting is paused.
+#Can't vest when standard vesting is paused.
 def test_vesting_when_paused(standard_vesting_parameters, vesting_manager, main, capsys):
     # ## Test Setup ##
 
@@ -1565,7 +1565,7 @@ def test_vesting_when_paused(standard_vesting_parameters, vesting_manager, main,
 
     testing_status = 1  # Inactive
 
-    vesting_executor.setVestingStatus(testing_status, {"from": accounts[1]})  # Set status
+    vesting_executor.setStandardVestingStatus(testing_status, {"from": accounts[1]})  # Set status
 
     ## Test Actions ##
 
@@ -1573,7 +1573,7 @@ def test_vesting_when_paused(standard_vesting_parameters, vesting_manager, main,
 
     eefi_vesting_amount = 2500 * 10**18
 
-    with brownie.reverts("Vesting not active"):
+    with brownie.reverts("Standard vesting not active"):
 
         standard_vesting_transaction = vesting_executor.standardVesting(
             vestor_address,
@@ -1586,6 +1586,100 @@ def test_vesting_when_paused(standard_vesting_parameters, vesting_manager, main,
         print(
             "Transaction should fail because vesting is paused"
         )
+        
+
+# Can't purchase and vest when vesting is paused
+def test_purchase_vesting_paused(set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys):
+    # ## Test Setup ##
+
+    # Contracts #
+
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    dai_contract = Contract("0x6B175474E89094C44Da98b954EedeAC495271d0F")
+
+    dai_token_address = dai_contract.address
+
+    dai_whale = accounts.at("0x748dE14197922c4Ae258c7939C7739f3ff1db573", force=True)
+
+    vesting_executor_address = vesting_executor.address
+
+    vesting_manager_address = vesting_manager
+
+    # Set Threshold and Release Percentage #
+
+    purchase_amount_threshold = 3000
+
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
+
+    release_percentage = 2
+
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
+
+    # Vesting Token Pricing #
+
+    dai_approval = 500000 * 10**18
+
+    desired_eefi_amount = 300
+
+    vesting_token_price = 12
+
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
+
+    # Transfer EEFI #
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    transfer_amount = 5000 * 10**18
+
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+
+    # Set up Vesting Parameters #
+
+    vesting_params_list = standard_vesting_parameters
+
+    # Set Vesting Token
+
+    set_vesting_token = set_vesting_token
+    
+     # Pause Vesting
+
+    testing_status = 1  # Inactive
+
+    vesting_executor.setVestingStatus(testing_status, {"from": accounts[1]})  # Set status
+
+    ## Test Actions ##
+
+    dai_approval_tx = dai_contract.approve(
+        vesting_executor_address, dai_approval, {"from": dai_whale}
+    )
+
+    with brownie.reverts("Vesting not active"):
+    
+        purchase_tx = vesting_executor.purchaseVestingToken(
+            desired_eefi_amount * 10 ** 18,
+            dai_token_address,
+            eefi_contract.address,
+            vesting_params_list,
+            {"from": dai_whale},
+        )
+
+
+    with capsys.disabled():
+        print(("Vesting should fail because it is inactive."))
+
+
+
 
 # Can't swap when swapping is paused.
 def test_swap_and_vest_when_paused(vesting_manager, main, capsys, chain):

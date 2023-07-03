@@ -33,8 +33,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
     uint256 public purchaseAmountThreshold; // Amount of vesting token that must be purchased to trigger immediate release of coins
     uint256 public releasePercentage; // Percentage of total amount that will be released
-    address public authorizedSwapTokenAddress; //Token that can be swapped for vesting token (which will be vested on behalf of the user)
-    IERC20 public swapToken = IERC20(authorizedSwapTokenAddress);
     uint256 public swapRatio; // Ratio that will determine how many swap tokens can be exchanged for vesting tokens
     VestingManager public vestingManager; // Vesting Manager contract
     TokenLock public tokenLock; // Contract where swapped tokens are deposited; Contract has no owner or withdraw functions
@@ -288,6 +286,37 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         _;
     }
 
+    //Standard Vesting status options
+    enum standardVestingStatus {
+        standardVestingActive, //0
+        standardVestingInactive //1
+    }
+
+    //Default standard vesting status: Active
+    standardVestingStatus public current_standard_vesting_status = standardVestingStatus.standardVestingActive;
+
+    /**
+     * @notice Changes the vesting status (for standard vesting) of the contract
+     * @dev Can only be called by the contract owner. Changes the status to the input value
+     * @param value The new vesting status
+     */
+    function setStandardVestingStatus(uint256 value) public onlyOwner {
+        current_standard_vesting_status = standardVestingStatus(value);
+    }
+
+    /**
+     * @notice Modifier to only allow certain function calls when vesting is active
+     * @dev Reverts if the current vesting status is not active. Used to restrict function calling
+     */
+    modifier whenStandardVestingActive() {
+        require(
+            current_standard_vesting_status == standardVestingStatus.standardVestingActive,
+            "Standard vesting not active"
+        );
+        _;
+    }
+    
+
     //Token lock options
 
     enum tokenLockStatus {
@@ -451,7 +480,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         purchaseAmountThreshold = threshold;
     }
 
-    /* ========== Set Vesting Exchange Rate ========== */
+    /* ========== Set Vesting Swap Exchange Rate ========== */
 
     /**
      * @notice Sets the swap ratio for the vesting to swap token conversion
@@ -618,7 +647,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         address vestor,
         uint256 amount,
         VestingParams memory _vestingParams
-    ) public whenVestingActive onlyOwner {
+    ) public whenStandardVestingActive onlyOwner {
         // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
         require(
             _vestingParams.vestingWeeks > 0 &&
