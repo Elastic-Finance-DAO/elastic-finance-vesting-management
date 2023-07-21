@@ -115,6 +115,19 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
     mapping(address => AuthorizedSwapTokens) public authorizedSwapTokens;
 
+    /**
+     * @dev Struct to represent authorized swap whitelist addresses
+     * @param address address to be added to whitelist
+     * @param string status of whitelisted address
+     */
+    struct AuthorizedSwapAddresses {
+        address whitelistaddress;
+        string whitelistaddressstatus;
+        bool isSet; // additional flag
+    }
+
+    mapping(address => AuthorizedSwapAddresses) public authorizedSwapAddresses;
+
     /* ========== Events ========== */
 
     event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
@@ -129,19 +142,19 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @notice Deploys the Vesting Manager contract and sets the Vesting Executor as the owner of the VestingManager.
      Also deploys the Token Lock contract, which has no owner and no withdrawal functions; used to "burn" tokens swapped for vesting assets
      * @dev The VestingExecutor contract initializes the VestingManager contract during its own deployment.
-     Constructor also sets the default purchase tokens: DAI and USDC.
+     Constructor also sets the default purchase tokens: DAI, USDC and USDT.
      */
     constructor() {
         // Deploy a new instance of VestingManager, setting VestingExecutor (this contract) as the owner
         vestingManager = new VestingManager(address(this));
         tokenLock = new TokenLock();
 
-        // Add initial valid purchase tokens to list
+        // Add initial valid purchase tokens to list (DAI, USDC, USDT)
         purchaseTokens[
             address(0x6B175474E89094C44Da98b954EedeAC495271d0F) //DAI
         ] = approvedPurchaseTokens({
             token: IERC20(0x6B175474E89094C44Da98b954EedeAC495271d0F),
-            decimals: 10**18,
+            decimals: 10 ** 18,
             numDecimals: 18
         });
 
@@ -149,9 +162,18 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             address(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48) //USDC
         ] = approvedPurchaseTokens({
             token: IERC20(0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48),
-            decimals: 10**6,
+            decimals: 10 ** 6,
             numDecimals: 6
         });
+
+        purchaseTokens[
+            address(0xdAC17F958D2ee523a2206206994597C13D831ec7) //USDT
+        ] = approvedPurchaseTokens({
+            token: IERC20(0xdAC17F958D2ee523a2206206994597C13D831ec7),
+            decimals: 10 ** 6,
+            numDecimals: 6
+        });
+
     }
 
     /* ========== Views ========== */
@@ -161,11 +183,9 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param assetAddress The address of the asset.
      * @return The amount of the asset currently locked.
      */
-    function viewLockedAmount(address assetAddress)
-        public
-        view
-        returns (uint256)
-    {
+    function viewLockedAmount(
+        address assetAddress
+    ) public view returns (uint256) {
         return vestingManager.getLockedAmount(assetAddress);
     }
 
@@ -174,11 +194,9 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param account The address of the account for which to return vesting schedule information
      * @return An array of ScheduleInfo structs, each containing the ID, cliff timestamp, and end timestamp for a vesting schedule (related to the account)
      */
-    function retrieveScheduleInfo(address account)
-        public
-        view
-        returns (VestingManager.ScheduleInfo[] memory)
-    {
+    function retrieveScheduleInfo(
+        address account
+    ) public view returns (VestingManager.ScheduleInfo[] memory) {
         VestingManager.ScheduleInfo[] memory schedules = vestingManager
             .getScheduleInfo(account);
         return schedules;
@@ -221,11 +239,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param to The recipient's address of the tokens.
      * @param amount The amount of tokens to be transferred.
      */
-    function _transferERC20(
-        IERC20 token,
-        address to,
-        uint256 amount
-    ) internal {
+    function _transferERC20(IERC20 token, address to, uint256 amount) internal {
         uint256 erc20balance = token.balanceOf(address(this));
         require(amount <= erc20balance, "Balance too low to transfer token");
         token.transfer(to, amount);
@@ -241,7 +255,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         token.transfer(to, amount);
     }
 
-    /* ========== Manage Vesting/Swap Status ========== */
+    /* ========== Manage Vesting/Swap/Token Locking/Whitelist Status ========== */
 
     //Vesting status options
     enum vestingStatus {
@@ -271,6 +285,25 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             "Vesting not active"
         );
         _;
+    }
+
+    //Whitelist status options
+    enum whiteListStatus {
+        whiteListActive, //0
+        whiteListInactive //1
+    }
+
+    //Default whitelist status: Inactive
+    whiteListStatus public current_whitelist_status =
+        whiteListStatus.whiteListInactive;
+
+    /**
+     * @notice Changes the whitelist status of the contract
+     * @dev Can only be called by the contract owner. Changes the status to the input value
+     * @param value The new whitelist status
+     */
+    function setWhiteListStatus(uint256 value) public onlyOwner {
+        current_whitelist_status = whiteListStatus(value);
     }
 
     //Swapping status options
@@ -336,14 +369,14 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         _;
     }
 
-    //Token lock options
+    //Token lock options (whether swapped tokens are locked in the Token Lock contract)
 
     enum tokenLockStatus {
         tokenLockActive, //0
         tokenLockInactive //1
     }
 
-    //Default token lock status: Inactive
+    //Default token lock status: Active
     tokenLockStatus public current_token_lock_status =
         tokenLockStatus.tokenLockActive;
 
@@ -449,10 +482,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param tokenAddress The address of the new token to add
      * @param decimals The decimals of the new token
      */
-    function addAuthorizedSwapToken(address tokenAddress, uint256 decimals)
-        public
-        onlyOwner
-    {
+    function addAuthorizedSwapToken(
+        address tokenAddress,
+        uint256 decimals
+    ) public onlyOwner {
         require(tokenAddress != address(0), "Invalid token address");
         require(
             address(authorizedSwapTokens[tokenAddress].token) == address(0),
@@ -531,6 +564,54 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         swapRatio = _ratio;
     }
 
+    /* ========== Add/Remove Addresses to Swap Whitelist/Check Whether Address is on Whitelist ========== */
+
+    /**
+     * @notice Add provided addresses to the authorized swap addresses whitelist
+     * @dev This function allows multiple addresses to be added to the whitelist status in a single transaction. 
+     The provided addresses must be valid i.e. they cannot be the null address. It checks for this condition and reverts the transaction if the condition is not met
+     * @param _addresses The array of addresses to be added to the authorized swap addresses whitelist
+     * 
+     */
+
+    function addAuthorizedSwapAddresses(
+        address[] memory _addresses
+    ) public onlyOwner {
+        for (uint i = 0; i < _addresses.length; i++) {
+            require(_addresses[i] != address(0), "Null address not allowed");
+            authorizedSwapAddresses[_addresses[i]] = AuthorizedSwapAddresses(
+                _addresses[i],
+                "Yes",
+                true
+            );
+        }
+    }
+
+    /**
+     * @notice Removes an address from the authorized swap addresses whitelist
+     * @dev Delete a specific address from the authorizedSwapAddresses mapping
+     The provided address must exist in the whitelist and cannot be the null address
+     * @param _address The address to be removed from the whitelist
+     */
+
+    function removeAuthorizedSwapAddress(address _address) public onlyOwner {
+        require(
+            authorizedSwapAddresses[_address].isSet,
+            "Address does not exist in the whitelist"
+        );
+        delete authorizedSwapAddresses[_address];
+    }
+
+    /**
+     * @notice Check if an address is on the authorized swap addresses whitelist
+     * @dev Checks if the isSet field in the struct against the passed address in authorizedSwapAddresses is true
+     * @param _address The address to check if it is on the whitelist
+     * @return bool Returns true if the address is on the whitelist, false otherwise
+     */
+    function isWhitelisted(address _address) public view returns (bool) {
+        return authorizedSwapAddresses[_address].isSet;
+    }
+
     /* ========== Purchase and Vesting Functions ========== */
 
     /**
@@ -558,9 +639,9 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         if (fromDecimals == toDecimals) {
             return amount;
         } else if (fromDecimals > toDecimals) {
-            return amount / (10**(fromDecimals - toDecimals));
+            return amount / (10 ** (fromDecimals - toDecimals));
         } else {
-            return amount * (10**(toDecimals - fromDecimals));
+            return amount * (10 ** (toDecimals - fromDecimals));
         }
     }
 
@@ -599,7 +680,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
         uint256 scaledBuyPrice = _vestingTokenPurchaseAmount
             .mul(vestingTokens[_vestingAsset].price)
-            .div(10**4);
+            .div(10 ** 4);
 
         //Calculate required amount of buy token
 
@@ -739,9 +820,14 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             authorizedSwapTokens[tokenToSwap].token != IERC20(address(0)),
             "Token must be authorized swap token"
         );
+        
+        //If whitelist is active, check that sender is on the whitelist.
+        if (current_whitelist_status == whiteListStatus.whiteListActive) {
+            require(isWhitelisted(msg.sender), "Sender is not on whitelist");
+        }
 
         // Calculate amount to vest
-        uint256 vestingAmount = swapTokenAmount.mul(swapRatio).div(10**4);
+        uint256 vestingAmount = swapTokenAmount.mul(swapRatio).div(10 ** 4);
         emit processLog("Vesting Amount Calculated", vestingAmount);
 
         // Transfer tokens to TokenLock contract or Treasury
@@ -820,10 +906,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param account The account to cancel vesting for.
      * @param scheduleId The id of the vesting schedule being canceled.
      */
-    function cancelVesting(address account, uint256 scheduleId)
-        external
-        multiSigOnly
-    {
+    function cancelVesting(
+        address account,
+        uint256 scheduleId
+    ) external multiSigOnly {
         vestingManager.cancelVesting(account, scheduleId);
     }
 
@@ -833,10 +919,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param amount The amount to withdraw.
      * @param asset The token to withdraw.
      */
-    function withdrawVestingTokens(uint256 amount, address asset)
-        external
-        multiSigOnly
-    {
+    function withdrawVestingTokens(
+        uint256 amount,
+        address asset
+    ) external multiSigOnly {
         vestingManager.withdrawVestingTokens(amount, asset);
 
         _transferERC20(IERC20(asset), owner(), amount);
