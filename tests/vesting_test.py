@@ -197,10 +197,10 @@ def test_address_of_token_lock_contract(vesting_manager, main, capsys):
         print("Token lock address should be different from executor")
 
 
-# ##### ----- Contract Status: Vesting, Staking  ----- #####
+# ##### ----- Contract Status: Vesting, Whitelist  ----- #####
 
 
-# # Vesting status is pausable
+# Vesting status is pausable
 def test_reset_vesting_status(main, capsys):
     ## Test Setup ##
 
@@ -216,13 +216,93 @@ def test_reset_vesting_status(main, capsys):
 
     vesting_status = vesting_executor.getCurrentVestingStatus()  # Check status
 
-    assert vesting_status == 1, "vestings status not updated"
+    assert vesting_status == 1, "vesting status not updated"
 
     with capsys.disabled():
         print("Vesting status should be 1 (inactive)")
         print(vesting_status)
+        
+        
+# Whitelist status is pausable
+def test_reset_whitelist_status(main, capsys):
+    ## Test Setup ##
+
+    vesting_executor = main
+
+    ## Test Actions ##
+
+    whitelist_status = 0  # Active
+
+    vesting_executor.setWhiteListStatus(
+        whitelist_status, {"from": accounts[1]}
+    )  # Set status
+
+    whitelist_status = vesting_executor.current_whitelist_status()  # Check status
+
+    assert whitelist_status == 0, "whitelist status not updated"
+
+    with capsys.disabled():
+        print("Vesting status should be 0 (active)")
+        print(whitelist_status)
 
 
+# ##### ----- Adding/Removing Addresses from Whitelist ----- #####
+
+def test_add_users_to_whitelist(main, capsys):
+    
+    ## Test Setup ##
+
+    vesting_executor = main
+    
+     ## Test Actions ##
+    
+    whitelist_addresses = ['0x4675C7e5BaAFBFFbca748158bEcBA61ef3b0a263', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D']
+
+    vesting_executor.addAuthorizedSwapAddresses(
+        whitelist_addresses, {"from": accounts[1]}
+    )  # Add addresses 
+    
+    whitelist_address_check = vesting_executor.isWhitelisted(
+        whitelist_addresses[0]
+    )  # Check address
+    
+    assert whitelist_address_check == True
+    
+    with capsys.disabled():
+        print("Address check should return True")
+        print(whitelist_address_check)
+        
+
+def test_remove_user_from_whitelist(main, capsys):
+    
+    ## Test Setup ##
+
+    vesting_executor = main
+    
+    whitelist_addresses = ['0x4675C7e5BaAFBFFbca748158bEcBA61ef3b0a263', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D']
+
+    vesting_executor.addAuthorizedSwapAddresses(
+        whitelist_addresses, {"from": accounts[1]}
+    )  # Add addresses 
+    
+    ## Test Actions ##
+    
+    vesting_executor.removeAuthorizedSwapAddress(
+        whitelist_addresses[1], {"from": accounts[1]}
+    )  # Remove Address
+    
+    
+    whitelist_address_check = vesting_executor.isWhitelisted(
+        whitelist_addresses[1]
+    )  # Check address
+    
+    assert whitelist_address_check == False
+    
+    with capsys.disabled():
+        print("Address check should return False")
+        print(whitelist_address_check)
+    
+    
 # ##### ----- Thresholds, Ratios and Asset Pricing ----- #####
 
 
@@ -822,6 +902,239 @@ def test_swap_and_vest(
 
     with capsys.disabled():
         print(swap_and_vest_transaction.info())
+        
+        
+def test_swap_and_vest_whitelist(
+    set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys, chain
+):
+    ## Test Setup ##
+
+    # Contracts #
+
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    vesting_executor_address = vesting_executor.address
+
+    vesting_manager_address = vesting_manager
+
+    # Transfer EEFI #
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    transfer_amount = 1500 * 10**18
+
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+
+    # Set up Vesting Parameters #
+
+    vesting_params_list = standard_vesting_parameters
+
+    ## Test Actions ##
+
+    # Swap Status
+
+    swap_status = 0  # Active
+
+    vesting_executor.setSwappingStatus(swap_status)  # Set status
+
+    swapping_status = vesting_executor.getCurrentSwappingStatus()  # Check status
+
+    # Swap Ratio (Set to 1 for whitelisted addresses)
+
+    swap_ratio = 1
+
+    swap_ratio_scaled = 1 * 10**4
+
+    vesting_executor.setSwapRatio(swap_ratio_scaled, {"from": accounts[1]})
+
+    contract_swap_ratio = vesting_executor.swapRatio()
+
+    # Add Authorized Swap Token
+
+    swap_token_address = eefi_contract.address
+
+    swap_token_decimals = 10**18
+
+    set_swap_token = vesting_executor.addAuthorizedSwapToken(
+        swap_token_address, swap_token_decimals, {"from": accounts[1]}
+    )
+
+    swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
+
+    # Add Vesting Token
+
+    set_vesting_token = set_vesting_token
+    
+    # Add swapper to whitelist
+    
+    whitelist_addresses = ['0xf950a86013bAA227009771181a885E369e158da3', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D']
+
+    vesting_executor.addAuthorizedSwapAddresses(
+        whitelist_addresses, {"from": accounts[1]}
+    )  # Add addresses 
+    
+    
+    # Set Whitelist Status to Active 
+    
+    whitelist_status = 0  # Active
+
+    vesting_executor.setWhiteListStatus(
+        whitelist_status, {"from": accounts[1]}
+    )  # Set status
+    
+    # Swap Transaction
+
+    swap_token_amount = 252.36585
+
+    swap_token_decimals = 10**18
+
+    token_to_swap = eefi_contract.address
+
+    eefi_approval = 5000 * 10**18
+
+    vesting_token_decimals = 10**18
+
+    eefi_approval_tx = eefi_contract.approve(
+        vesting_executor_address, eefi_approval, {"from": eefi_whale}
+    )
+
+    swap_and_vest_transaction = vesting_executor.swapAndVest(
+        swap_token_amount * swap_token_decimals,
+        token_to_swap,
+        vesting_params_list,
+        {"from": eefi_whale},
+    )
+
+    expected_vested_token_amount = swap_token_amount * swap_ratio
+    contract_vested_token_amount = (
+        int(swap_and_vest_transaction.events[-2]["amount"]) / vesting_token_decimals
+    )
+
+    assert math.isclose(
+        expected_vested_token_amount, contract_vested_token_amount, rel_tol=0.005
+    ), f"The amount vested ({contract_vested_token_amount}) and the expected amount ({expected_vested_token_amount}) are not as close as expected."
+
+    with capsys.disabled():
+        print(swap_and_vest_transaction.info())
+        
+        
+def test_swap_and_vest_not_on_whitelist(
+    set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys, chain
+):
+    ## Test Setup ##
+
+    # Contracts #
+
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    vesting_executor_address = vesting_executor.address
+
+    vesting_manager_address = vesting_manager
+
+    # Transfer EEFI #
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    transfer_amount = 1500 * 10**18
+
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+
+    # Set up Vesting Parameters #
+
+    vesting_params_list = standard_vesting_parameters
+
+    ## Test Actions ##
+
+    # Swap Status
+
+    swap_status = 0  # Active
+
+    vesting_executor.setSwappingStatus(swap_status)  # Set status
+
+    swapping_status = vesting_executor.getCurrentSwappingStatus()  # Check status
+
+    # Swap Ratio (Set to 1 for whitelisted addresses)
+
+    swap_ratio = 1
+
+    swap_ratio_scaled = 1 * 10**4
+
+    vesting_executor.setSwapRatio(swap_ratio_scaled, {"from": accounts[1]})
+
+    contract_swap_ratio = vesting_executor.swapRatio()
+
+    # Add Authorized Swap Token
+
+    swap_token_address = eefi_contract.address
+
+    swap_token_decimals = 10**18
+
+    set_swap_token = vesting_executor.addAuthorizedSwapToken(
+        swap_token_address, swap_token_decimals, {"from": accounts[1]}
+    )
+
+    swap_token_details = vesting_executor.authorizedSwapTokens(swap_token_address)
+
+    # Add Vesting Token
+
+    set_vesting_token = set_vesting_token
+    
+    # Do not add swapper to whitelist
+    
+    whitelist_addresses = ['0x3Eb357ac9BbE9468D78cCd2b949dF8dEf5B8a288', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D', '0x25994D723594A225E62DACc72c50AD6EFE75Ff9D']
+
+    vesting_executor.addAuthorizedSwapAddresses(
+        whitelist_addresses, {"from": accounts[1]}
+    )  # Add addresses 
+    
+    
+    # Set Whitelist Status to Active 
+    
+    whitelist_status = 0  # Active
+
+    vesting_executor.setWhiteListStatus(
+        whitelist_status, {"from": accounts[1]}
+    )  # Set status
+    
+    # Swap Transaction
+
+    swap_token_amount = 252.36585
+
+    swap_token_decimals = 10**18
+
+    token_to_swap = eefi_contract.address
+
+    eefi_approval = 5000 * 10**18
+
+    vesting_token_decimals = 10**18
+
+    eefi_approval_tx = eefi_contract.approve(
+        vesting_executor_address, eefi_approval, {"from": eefi_whale}
+    )
+
+    with brownie.reverts("Sender is not on whitelist"):
+        swap_and_vest_transaction = vesting_executor.swapAndVest(
+        swap_token_amount * swap_token_decimals,
+        token_to_swap,
+        vesting_params_list,
+        {"from": eefi_whale},
+    )
+    
+    with capsys.disabled():
+        print("Swap transaction should revert because swapper is not on whitelist")
+            
 
 
 # Swap asset for vested asset (includes setting swap ratio), used to swap old asset for new asset and vest

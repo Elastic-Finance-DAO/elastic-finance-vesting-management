@@ -132,6 +132,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
     event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
     event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
+    event addressesAddedToWhiteList(address[] addresses);
     event processLog(string description, uint256 number);
     event processLog2(string message);
     event processLog3(address address2);
@@ -585,6 +586,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
                 true
             );
         }
+
+        emit addressesAddedToWhiteList(_addresses);
     }
 
     /**
@@ -660,7 +663,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         address _vestingAsset,
         VestingParams memory _vestingParams
     ) public payable whenVestingActive nonReentrant {
-        // Ensure cliff is shorter than vesting (vesting includes the cliff duration) and cliff + vesting weeks, ands start time are valid
+        // Ensure cliff is shorter than vesting (vesting includes the cliff duration) and cliff + vesting weeks; provided vesting parameters are valid; start time is valid
 
         require(
             _vestingParams.vestingWeeks > 0 &&
@@ -788,7 +791,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Swaps a specified amount of tokens for a corresponding amount of vesting tokens, then vests those tokens to a specified address.
+     * @notice Swaps a specified amount of tokens for a corresponding amount of vesting tokens, then vests those tokens for a specified address.
      * @dev Can only be called when swapping is active. Tokens to be swapped must be the authorized swap token.
      * Swapped tokens are sent to the Token Lock contract
      * If not enough tokens are available to vest, the transaction will revert.
