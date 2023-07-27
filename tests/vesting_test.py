@@ -565,7 +565,7 @@ def test_purchase_vesting_token_usdc(
 
     # Vesting Token Pricing #
 
-    vesting_token_price = 12
+    vesting_token_price = 12.25
 
     usdc_approval = 500000 * 10**6
 
@@ -632,6 +632,111 @@ def test_purchase_vesting_token_usdc(
         print(("Purchase Amount", purchase_amount))
 
 
+def test_purchase_vesting_token_usdt(
+    set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys
+):
+    # ## Test Setup ##
+
+    # Contracts #
+
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    usdt_contract = Contract("0xdAC17F958D2ee523a2206206994597C13D831ec7")
+
+    usdt_token_address = usdt_contract.address
+
+    usdt_whale = accounts.at("0x23eBA962AC256e4BDfEb926c438AD33f96a68042", force=True)
+
+    vesting_executor_address = vesting_executor.address
+
+    vesting_manager_address = vesting_manager
+
+    # Set Threshold and Release Percentage #
+
+    purchase_amount_threshold = 3000
+
+    vesting_executor.setPurchaseAmountThreshold(
+        purchase_amount_threshold, {"from": accounts[1]}
+    )  # Set threshold
+
+    release_percentage = 2
+
+    vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set release percentage
+
+    # Vesting Token Pricing #
+
+    vesting_token_price = 12.25
+
+    usdt_approval = 500000 * 10**6
+
+    desired_eefi_amount = 426.258897
+
+    purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**6
+
+    # Transfer EEFI #
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    transfer_amount = 5000 * 10**18
+
+    eefi_contract.transfer(
+        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
+
+    # Set up Vesting Parameters #
+
+    vesting_params_list = standard_vesting_parameters
+
+    # Set Vesting Token
+
+    eefi_token_address = eefi_contract.address
+
+    eefi_token_decimals = 10**18
+
+    eefi_token_decimal_number = 18
+
+    set_vesting_token = set_vesting_token
+
+    ## Test Actions ##
+
+    usdt_approval_tx = usdt_contract.approve(
+        vesting_executor_address, usdt_approval, {"from": usdt_whale}
+    )
+
+    purchase_tx = vesting_executor.purchaseVestingToken(
+        desired_eefi_amount * eefi_token_decimals,
+        usdt_token_address,
+        eefi_contract.address,
+        vesting_params_list,
+        {"from": usdt_whale},
+    )
+    release_percentage_decimal = 0.02
+
+    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+
+    eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
+
+    vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
+
+    assert (
+        vested_amount_contract == eefi_vested
+    ), "Vested amount and expected vested amount don't match"
+
+    with capsys.disabled():
+        print(purchase_tx.events[-1])
+        print(purchase_tx.info())
+        # print(vested_amount_contract)
+        print("USDT whale balance", usdt_contract.balanceOf(usdt_whale))
+        print(("Purchase Amount", purchase_amount))
+
+
+
 # Purchase asset with DAI, vest, release portion of vesting asset allocation to purchaser
 def test_purchase_vesting_token_dai(
     set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys
@@ -672,9 +777,9 @@ def test_purchase_vesting_token_dai(
 
     dai_approval = 500000 * 10**18
 
-    desired_eefi_amount = 300
+    desired_eefi_amount = 426.258897
 
-    vesting_token_price = 12
+    vesting_token_price = 12.25
 
     purchase_amount = (desired_eefi_amount * vesting_token_price) * 10**18
 
@@ -726,6 +831,7 @@ def test_purchase_vesting_token_dai(
 
     with capsys.disabled():
         print(vested_amount_contract)
+        print(purchase_tx.info())
         print("DAI whale balance", dai_contract.balanceOf(dai_whale))
         print(("Purchase Amount", purchase_amount))
 

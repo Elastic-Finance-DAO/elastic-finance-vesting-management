@@ -824,7 +824,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             "Token must be authorized swap token"
         );
         
-        //If whitelist is active, check that sender is on the whitelist.
+        // If whitelist is active, check that sender is on the whitelist.
         if (current_whitelist_status == whiteListStatus.whiteListActive) {
             require(isWhitelisted(msg.sender), "Sender is not on whitelist");
         }
