@@ -798,6 +798,11 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             "Vesting: invalid vesting params set"
         );
 
+        require(
+            _vestingParams.startTime >= block.timestamp - 60 minutes,
+            "Invalid start time set"
+        );
+
         uint256 vestingAmount = amount;
         _vest(vestor, vestingAmount, _vestingParams);
 
@@ -827,9 +832,13 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
                 _vestingParams.cliffWeeks >=
                 validVestingParams.swapCliffWeeks &&
                 _vestingParams.vestingWeeks >=
-                validVestingParams.swapVestingWeeks &&
-                _vestingParams.startTime >= block.timestamp - 3 minutes,
+                validVestingParams.swapVestingWeeks,
             "Vesting: not valid parameters"
+        );
+
+        require(
+            _vestingParams.startTime >= block.timestamp - 60 minutes,
+            "Invalid start time set"
         );
 
         // Check that swap token is authorized
