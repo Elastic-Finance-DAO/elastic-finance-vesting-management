@@ -220,7 +220,7 @@ contract VestingManager is Ownable {
         schedule.claimedAmount = amount; // set new claimed amount based off the curve
         locked[schedule.asset] = locked[schedule.asset] - amountToTransfer;
         require(
-            IERC20(schedule.asset).transfer(msg.sender, amountToTransfer),
+            IERC20(schedule.asset).transfer(vestor, amountToTransfer),
             "Vesting: transfer failed"
         );
         emit vestingClaim(vestor, amount);

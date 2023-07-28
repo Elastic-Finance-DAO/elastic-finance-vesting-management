@@ -174,7 +174,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             decimals: 10 ** 6,
             numDecimals: 6
         });
-
     }
 
     /* ========== Views ========== */
@@ -453,6 +452,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             "Vesting token on list"
         );
 
+        require(price >= 1 * 10**4 && price <= 200 * 10**4, "Price must be scaled to 10 ** 4");
+
         vestingTokens[tokenAddress] = VestingTokens({
             token: IERC20(tokenAddress),
             decimals: decimals,
@@ -539,9 +540,11 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     /**
      * @notice Sets the release percentage for amount of vesting tokens that will immediately sent to users
      * @dev Allows the owner to set a threshold vesting token releases.
-     * @param _releasePercentage The new percentage for the amount of vesting tokens immediately released to purchasers
+     * @param _releasePercentage The new percentage for the amount of vesting tokens immediately released to purchasers (should be scaled to 10^4)
      */
     function setReleasePercentage(uint256 _releasePercentage) public onlyOwner {
+    
+        require(_releasePercentage >= 1 * 10**4 && _releasePercentage <= 100 * 10**4, "Release percentage must be scaled to 10 ** 4");
         releasePercentage = _releasePercentage;
     }
 
@@ -671,9 +674,13 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
                 _vestingParams.vestingWeeks >=
                 validVestingParams.purchaseVestingWeeks &&
                 _vestingParams.cliffWeeks >=
-                validVestingParams.purchaseCliffWeeks &&
-                _vestingParams.startTime >= block.timestamp - 3 minutes,
+                validVestingParams.purchaseCliffWeeks,
             "Vesting: invalid vesting params set"
+        );
+
+        require(
+            _vestingParams.startTime >= block.timestamp - 60 minutes,
+            "Invalid start time set"
         );
 
         require(
@@ -729,18 +736,25 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         // Complete vesting operations //
 
         if (sellTokenAmountCalc >= purchaseAmountThreshold) {
-            uint256 amountToRelease = (
-                _vestingTokenPurchaseAmount
-                    .div(vestingTokens[_vestingAsset].decimals)
-                    .mul(releasePercentage)
-            ).div(100);
+            //Calculate amount 
+            uint256 percentToReleaseCalc = _vestingTokenPurchaseAmount
+                .mul(releasePercentage)
+                .div(vestingTokens[_vestingAsset].decimals);
 
-            emit processLog("Amount to Release Calculated", amountToRelease);
+            uint256 amountToRelease = percentToReleaseCalc
+                .mul(vestingTokens[_vestingAsset].decimals)
+                .div(10 ** 4)
+                .div(100);
+
+            emit processLog(
+                "Amount to Release Calculated",
+                amountToRelease
+            );
 
             // Withdraw amount from vesting contract and send to purchaser
             if (amountToRelease > 0) {
                 _withdrawBonusTokens(
-                    amountToRelease.mul(vestingTokens[_vestingAsset].decimals),
+                    amountToRelease,
                     _vestingAsset,
                     msg.sender
                 );
@@ -748,7 +762,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
 
             // Calculate the remaining amount to vest
             vestingAmount = _vestingTokenPurchaseAmount.sub(
-                amountToRelease.mul(vestingTokens[_vestingAsset].decimals)
+                amountToRelease
             );
             emit processLog("Vesting Amount Calculated", vestingAmount);
 
@@ -823,7 +837,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             authorizedSwapTokens[tokenToSwap].token != IERC20(address(0)),
             "Token must be authorized swap token"
         );
-        
+
         // If whitelist is active, check that sender is on the whitelist.
         if (current_whitelist_status == whiteListStatus.whiteListActive) {
             require(isWhitelisted(msg.sender), "Sender is not on whitelist");

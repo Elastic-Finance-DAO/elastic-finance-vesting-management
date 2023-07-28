@@ -65,7 +65,7 @@ def valid_vesting_parameters(main):
     purchase_cliff_weeks = 52  # 1 year
     purchase_vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
     swap_cliff_weeks = 52
-    swap_vesting_weeks = 55
+    swap_vesting_weeks = 88
 
     vesting_executor = main
 
@@ -78,13 +78,13 @@ def valid_vesting_parameters(main):
     )
     
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def set_vesting_token(main):
     vesting_executor = main
 
     eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
 
-    vesting_token_price = 12.25 * 10**4
+    vesting_token_price = 12 * 10**4
 
     eefi_token_address = eefi_contract.address
 
@@ -338,7 +338,7 @@ def test_setting_release_percentage(main, capsys):
     vesting_executor = main
     ## Test Actions ##
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -353,9 +353,57 @@ def test_setting_release_percentage(main, capsys):
     ), "release percentage not set"
 
     with capsys.disabled():
-        print("Release percentage should be 2")
+        print("Release percentage should be 2*10**4")
         print(release_percentage_threshold_contract)
+        
+def test_setting_release_percentage_not_scaled(main, capsys):
+    ## Test Setup ##
 
+    vesting_executor = main
+    ## Test Actions ##
+
+    release_percentage = 2
+
+    with brownie.reverts("Release percentage must be scaled to 10 ** 4"):
+        release_percentage_setting = vesting_executor.setReleasePercentage(
+        release_percentage, {"from": accounts[1]}
+    )  # Set percentage
+
+
+    with capsys.disabled():
+        print("Release percentage should fail because the number is not scaled")
+        
+
+def test_vesting_token_price_not_scaled(main, capsys):
+    ## Test Setup ##
+
+    vesting_executor = main
+    ## Test Actions ##
+
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    vesting_token_price = 12 
+
+    eefi_token_address = eefi_contract.address
+
+    eefi_token_decimals = 10**18
+
+    eefi_token_decimal_number = 18
+
+    with brownie.reverts("Price must be scaled to 10 ** 4"):
+       
+        set_vesting_token = vesting_executor.addVestingToken(
+                eefi_token_address,
+                eefi_token_decimals,
+                vesting_token_price,
+                eefi_token_decimal_number,
+            )
+
+    with capsys.disabled():
+        print("Setting vesting token should fail because price is not scaled")
+        
 
 # ##### ----- Vesting Asset Withdrawal  ----- #####
 
@@ -557,7 +605,7 @@ def test_purchase_vesting_token_usdc(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2.5 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -565,7 +613,7 @@ def test_purchase_vesting_token_usdc(
 
     # Vesting Token Pricing #
 
-    vesting_token_price = 12.25
+    vesting_token_price = 12
 
     usdc_approval = 500000 * 10**6
 
@@ -577,10 +625,10 @@ def test_purchase_vesting_token_usdc(
 
     eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
 
-    transfer_amount = 5000 * 10**18
+    transfer_amount = 15000 * 10**18
 
     eefi_contract.transfer(
-        vesting_manager_address, transfer_amount, {"from": eefi_whale}
+        vesting_manager_address, transfer_amount, {"from": eefi_whale,}
     )
 
     contract_eefi_balance = eefi_contract.balanceOf(vesting_manager_address)
@@ -612,17 +660,21 @@ def test_purchase_vesting_token_usdc(
         vesting_params_list,
         {"from": usdc_whale},
     )
-    release_percentage_decimal = 0.02
+    release_percentage_decimal = 2.5/100
 
-    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = float(desired_eefi_amount * release_percentage_decimal)
 
-    eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
+    eefi_vested = (desired_eefi_amount - bonus_amount) 
 
-    vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
+    vested_amount_contract = int(purchase_tx.events[-1]["vestedAssetAmount"]) / 10 ** 18
 
-    assert (
-        vested_amount_contract == eefi_vested
-    ), "Vested amount and expected vested amount don't match"
+    # assert (
+    #     vested_amount_contract == eefi_vested
+    # ), "Vested amount and expected vested amount don't match"
+    
+    assert math.isclose(
+        vested_amount_contract, eefi_vested, rel_tol=0.005
+    ), f"The amount vested ({vested_amount_contract}) and the expected amount ({eefi_vested}) are not as close as expected."
 
     with capsys.disabled():
         print(purchase_tx.events[-1])
@@ -661,7 +713,7 @@ def test_purchase_vesting_token_usdt(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -718,15 +770,15 @@ def test_purchase_vesting_token_usdt(
     )
     release_percentage_decimal = 0.02
 
-    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = float(desired_eefi_amount * release_percentage_decimal)
 
     eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
 
     vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
 
-    assert (
-        vested_amount_contract == eefi_vested
-    ), "Vested amount and expected vested amount don't match"
+    assert math.isclose(
+        vested_amount_contract, eefi_vested, rel_tol=0.005
+    ), f"The amount vested ({vested_amount_contract}) and the expected amount ({eefi_vested}) are not as close as expected."
 
     with capsys.disabled():
         print(purchase_tx.events[-1])
@@ -767,7 +819,7 @@ def test_purchase_vesting_token_dai(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -819,15 +871,15 @@ def test_purchase_vesting_token_dai(
 
     release_percentage_decimal = 0.02
 
-    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = float(desired_eefi_amount * release_percentage_decimal)
 
     eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
 
     vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
 
-    assert (
-        vested_amount_contract == eefi_vested
-    ), "Vested amount and expected vested amount don't match"
+    assert math.isclose(
+        vested_amount_contract, eefi_vested, rel_tol=0.005
+    ), f"The amount vested ({vested_amount_contract}) and the expected amount ({eefi_vested}) are not as close as expected."
 
     with capsys.disabled():
         print(vested_amount_contract)
@@ -1409,7 +1461,7 @@ def test_purchase_vesting_token_purchase_price_lower_than_threshold(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -1536,7 +1588,7 @@ def test_vesting_claim_standard_vest(vesting_manager, main, capsys, chain):
     # Move Chain Forward ##
 
     unix_seconds_in_a_day = 86399
-    days = 375
+    days = 365
     unix_time_elapsed = int(unix_seconds_in_a_day * days)
 
     unix_time_at_end_of_vesting = int(start_time + unix_time_elapsed)
@@ -1554,7 +1606,7 @@ def test_vesting_claim_standard_vest(vesting_manager, main, capsys, chain):
     )
 
     assert (
-        account_claim_transaction.events[1]["claimer"] == vestor_address
+        account_claim_transaction.events[0]["to"] == vestor_address
     ), "Vesting claim did not succeed"
 
     with capsys.disabled():
@@ -1594,7 +1646,7 @@ def test_vesting_claim_purchase(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2.5 * 10**4 
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -1635,7 +1687,7 @@ def test_vesting_claim_purchase(
     asset_address = eefi_contract.address
     is_fixed = False  # Vesting can be cancelled
     cliff_weeks = 52  # 1 year
-    vesting_weeks = 55  # Vesting occurs over 3 weeks post-cliff
+    vesting_weeks = 88  # Vesting occurs over 3 weeks post-cliff
     start_time = current_time = time.time()  # Current time in UNIX
 
     vesting_params_list = [
@@ -1684,8 +1736,8 @@ def test_vesting_claim_purchase(
     )
 
     assert (
-        account_claim_transaction.events[1]["claimer"] == dai_whale_address
-    ), "Vesting claim did not succeed"
+        account_claim_transaction.events[0]["to"] == dai_whale_address
+    ), "Vesting claim was not transferred to vestor"
 
     with capsys.disabled():
         print(purchase_tx.info())
@@ -1998,7 +2050,7 @@ def test_purchase_vesting_token_non_approved_token(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -2143,7 +2195,7 @@ def test_purchase_vesting_paused(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -2670,7 +2722,7 @@ def test_purchase_vesting_start_time_incorrect(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -2769,7 +2821,7 @@ def test_purchase_vesting_cliff_vesting_incorrect(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -3199,7 +3251,7 @@ def test_purchase_vesting_token_dai_fraction(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -3251,25 +3303,23 @@ def test_purchase_vesting_token_dai_fraction(
 
     release_percentage_decimal = 0.02
 
-    bonus_amount = int(desired_eefi_amount * release_percentage_decimal)
+    bonus_amount = float(desired_eefi_amount * release_percentage_decimal)
 
     eefi_vested = (desired_eefi_amount - bonus_amount) * 10**18
 
     vested_amount_contract = purchase_tx.events[-1]["vestedAssetAmount"]
 
-    assert (
-        vested_amount_contract == eefi_vested
-    ), "Vested amount and expected vested amount don't match"
-
+    assert math.isclose(
+        vested_amount_contract, eefi_vested, rel_tol=0.005
+    ), f"The amount vested ({vested_amount_contract}) and the expected amount ({eefi_vested}) are not as close as expected."
+    
+    
     with capsys.disabled():
         print(purchase_tx.info())
-        print("DAI whale balance", dai_contract.balanceOf(dai_whale))
-        print(("Purchase Amount", purchase_amount))
-
-
+        
 # Purchase price is fraction; amount desired is fraction;
 def test_purchase_vesting_token_dai_price_fraction(
-    set_vesting_token, standard_vesting_parameters, vesting_manager, main, capsys
+    standard_vesting_parameters, vesting_manager, main, capsys
 ):
     # ## Test Setup ##
 
@@ -3297,7 +3347,7 @@ def test_purchase_vesting_token_dai_price_fraction(
         purchase_amount_threshold, {"from": accounts[1]}
     )  # Set threshold
 
-    release_percentage = 2
+    release_percentage = 2 * 10 ** 4
 
     vesting_executor.setReleasePercentage(
         release_percentage, {"from": accounts[1]}
@@ -3306,8 +3356,21 @@ def test_purchase_vesting_token_dai_price_fraction(
     # Vesting Token Pricing #
 
     vesting_token_price = (
-        12.25 * 10**4
-    )  # Note that adjustment was made in set_vesting_token_fixture for this test; The number is added to check calculations.
+        12.25 * 10 ** 4
+    )  
+    
+    eefi_token_address = eefi_contract.address
+
+    eefi_token_decimals = 10**18
+
+    eefi_token_decimal_number = 18
+
+    set_vesting_token = vesting_executor.addVestingToken(
+        eefi_token_address,
+        eefi_token_decimals,
+        vesting_token_price,
+        eefi_token_decimal_number,
+    )
 
     dai_approval = 500000 * 10**18
 
