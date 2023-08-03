@@ -72,9 +72,10 @@ contract VestingManager is Ownable {
     /* ========== Events ========== */
 
     event vestingClaim(
+        uint256 scheduleID,
         address indexed claimer,
-        uint256 amount,
-        uint256 tokensClaimed
+        uint256 tokenAmountClaimed,
+        uint256 tokensClaimedToDate
     );
     event vestingCancelled(uint256 scheduleID, address account);
 
@@ -220,11 +221,12 @@ contract VestingManager is Ownable {
         uint256 amountToTransfer = amount - schedule.claimedAmount;
         schedule.claimedAmount = amount; // set new claimed amount based off the curve
         locked[schedule.asset] = locked[schedule.asset] - amountToTransfer;
+        
         require(
             IERC20(schedule.asset).transfer(vestor, amountToTransfer),
             "Vesting: transfer failed"
         );
-        emit vestingClaim(vestor, amountToTransfer, amount);
+        emit vestingClaim(scheduleNumber, vestor, amountToTransfer, amount);
     }
 
     /**

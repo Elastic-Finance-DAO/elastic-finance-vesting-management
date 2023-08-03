@@ -131,6 +131,13 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     /* ========== Events ========== */
 
     event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
+
+    event vestingPurchaseTransactionComplete(
+        address indexed vester,
+        uint256 vestedAssetAmount,
+        uint256 amountTransferred
+    );
+
     event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
     event addressesAddedToWhiteList(address[] addresses);
     event bonusVestingTokenTransfered(
@@ -777,13 +784,21 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
             _vest(msg.sender, vestingAmount, _vestingParams);
 
-            emit vestingTransactionComplete(msg.sender, vestingAmount);
+            emit vestingPurchaseTransactionComplete(
+                msg.sender,
+                vestingAmount,
+                sellTokenAmountCalc
+            );
         } else {
             vestingAmount = _vestingTokenPurchaseAmount;
 
             _vest(msg.sender, vestingAmount, _vestingParams);
 
-            emit vestingTransactionComplete(msg.sender, vestingAmount);
+            emit vestingPurchaseTransactionComplete(
+                msg.sender,
+                vestingAmount,
+                sellTokenAmountCalc
+            );
         }
     }
 
