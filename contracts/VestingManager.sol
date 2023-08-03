@@ -9,7 +9,6 @@ import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-
 /**
  * Vesting Manager core functionality based on standard Myceleium 
  (formerly Tracer DAO) vesting contract. Source code 
@@ -55,6 +54,7 @@ contract VestingManager is Ownable {
         uint256 id;
         uint256 cliffTime;
         uint256 endTime;
+        uint256 claimedAmount;
         uint256 totalAmount;
     }
 
@@ -71,7 +71,11 @@ contract VestingManager is Ownable {
 
     /* ========== Events ========== */
 
-    event vestingClaim(address indexed claimer, uint256 amount);
+    event vestingClaim(
+        address indexed claimer,
+        uint256 amount,
+        uint256 tokensClaimed
+    );
     event vestingCancelled(uint256 scheduleID, address account);
 
     event VestingScheduleCreated(
@@ -96,15 +100,13 @@ contract VestingManager is Ownable {
     /* ========== Views ========== */
 
     /**
-    * @notice Fetches locked amount of a specific asset.
-    * @param _assetAddress The address of the asset.
-    * @return The amount of the asset currently locked.
-    */
-    function getLockedAmount(address _assetAddress)
-        public
-        view
-        returns (uint256)
-    {
+     * @notice Fetches locked amount of a specific asset.
+     * @param _assetAddress The address of the asset.
+     * @return The amount of the asset currently locked.
+     */
+    function getLockedAmount(
+        address _assetAddress
+    ) public view returns (uint256) {
         return locked[_assetAddress];
     }
 
@@ -113,11 +115,9 @@ contract VestingManager is Ownable {
      * @param account The address of the account for which to return vesting schedule information
      * @return An array of ScheduleInfo structs, each containing the ID, cliff timestamp, and end timestamp for a vesting schedule (related to the account)
      */
-    function getScheduleInfo(address account)
-        public
-        view
-        returns (ScheduleInfo[] memory)
-    {
+    function getScheduleInfo(
+        address account
+    ) public view returns (ScheduleInfo[] memory) {
         uint256 count = numberOfSchedules[account];
         ScheduleInfo[] memory scheduleInfoList = new ScheduleInfo[](count);
         for (uint256 i = 0; i < count; i++) {
@@ -125,6 +125,7 @@ contract VestingManager is Ownable {
                 i,
                 schedules[account][i].cliffTime,
                 schedules[account][i].endTime,
+                schedules[account][1].claimedAmount,
                 schedules[account][i].totalAmount
             );
         }
@@ -223,7 +224,7 @@ contract VestingManager is Ownable {
             IERC20(schedule.asset).transfer(vestor, amountToTransfer),
             "Vesting: transfer failed"
         );
-        emit vestingClaim(vestor, amount);
+        emit vestingClaim(vestor, amountToTransfer, amount);
     }
 
     /**
@@ -232,10 +233,10 @@ contract VestingManager is Ownable {
      * @param account the account of the user whos vesting schedule is being cancelled.
      * @param scheduleId the schedule ID of the vesting schedule being cancelled
      */
-    function cancelVesting(address account, uint256 scheduleId)
-        external
-        onlyOwner
-    {
+    function cancelVesting(
+        address account,
+        uint256 scheduleId
+    ) external onlyOwner {
         Schedule storage schedule = schedules[account][scheduleId];
         require(!schedule.isFixed, "Vesting: Account is fixed");
         uint256 outstandingAmount = schedule.totalAmount -
@@ -278,10 +279,10 @@ contract VestingManager is Ownable {
      * @notice Withdraws vesting tokens from the contract.
      * @dev blocks withdrawing locked tokens.
      */
-    function withdrawVestingTokens(uint256 amount, address asset)
-        external
-        onlyOwner
-    {
+    function withdrawVestingTokens(
+        uint256 amount,
+        address asset
+    ) external onlyOwner {
         IERC20 token = IERC20(asset);
         require(
             token.balanceOf(address(this)) - locked[asset] >= amount,

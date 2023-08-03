@@ -133,6 +133,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
     event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
     event addressesAddedToWhiteList(address[] addresses);
+    event bonusVestingTokenTransfered(
+        address recipient,
+        uint256 transferAmount
+    );
     event processLog(string description, uint256 number);
     event processLog2(string message);
     event processLog3(address address2);
@@ -452,7 +456,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             "Vesting token on list"
         );
 
-        require(price >= 1 * 10**4 && price <= 200 * 10**4, "Price must be scaled to 10 ** 4");
+        require(
+            price >= 1 * 10 ** 4 && price <= 200 * 10 ** 4,
+            "Price must be scaled to 10 ** 4"
+        );
 
         vestingTokens[tokenAddress] = VestingTokens({
             token: IERC20(tokenAddress),
@@ -543,8 +550,11 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param _releasePercentage The new percentage for the amount of vesting tokens immediately released to purchasers (should be scaled to 10^4)
      */
     function setReleasePercentage(uint256 _releasePercentage) public onlyOwner {
-    
-        require(_releasePercentage >= 1 * 10**4 && _releasePercentage <= 100 * 10**4, "Release percentage must be scaled to 10 ** 4");
+        require(
+            _releasePercentage >= 1 * 10 ** 4 &&
+                _releasePercentage <= 100 * 10 ** 4,
+            "Release percentage must be scaled to 10 ** 4"
+        );
         releasePercentage = _releasePercentage;
     }
 
@@ -736,7 +746,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         // Complete vesting operations //
 
         if (sellTokenAmountCalc >= purchaseAmountThreshold) {
-            //Calculate amount 
+            //Calculate amount to release
             uint256 percentToReleaseCalc = _vestingTokenPurchaseAmount
                 .mul(releasePercentage)
                 .div(vestingTokens[_vestingAsset].decimals);
@@ -746,10 +756,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
                 .div(10 ** 4)
                 .div(100);
 
-            emit processLog(
-                "Amount to Release Calculated",
-                amountToRelease
-            );
+            emit processLog("Amount to Release Calculated", amountToRelease);
 
             // Withdraw amount from vesting contract and send to purchaser
             if (amountToRelease > 0) {
@@ -760,10 +767,11 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
                 );
             }
 
+            emit bonusVestingTokenTransfered(msg.sender, amountToRelease);
+
             // Calculate the remaining amount to vest
-            vestingAmount = _vestingTokenPurchaseAmount.sub(
-                amountToRelease
-            );
+            vestingAmount = _vestingTokenPurchaseAmount.sub(amountToRelease);
+
             emit processLog("Vesting Amount Calculated", vestingAmount);
 
             // Vest the tokens for the user; if not enough tokens are available to vest the transaction will revert
