@@ -199,7 +199,7 @@ contract VestingManager is Ownable {
      * @notice Post-cliff period, users can claim their tokens
      * @param scheduleNumber which schedule the user is claiming against
      */
-    function claim(uint256 scheduleNumber, address vestor) external {
+    function claim(uint256 scheduleNumber, address vestor) external onlyOwner {
         Schedule storage schedule = schedules[vestor][scheduleNumber];
         require(
             schedule.cliffTime <= block.timestamp,
