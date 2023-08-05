@@ -52,10 +52,33 @@ contract VestingManager is Ownable {
      */
     struct ScheduleInfo {
         uint256 id;
+        uint256 startTime;
         uint256 cliffTime;
         uint256 endTime;
         uint256 claimedAmount;
         uint256 totalAmount;
+        address asset;
+    }
+
+    /**
+     * @dev Struct to represent amount of vested tokens claimable for a vesting schedule
+     * @param scheduleID ID of vesting schedule
+     * @param claimableTokens number of vesting tokens claimable as of the current time
+     */
+    struct ClaimableInfo {
+        uint256 scheduleID;
+        uint256 claimableTokens;
+    }
+
+    /**
+     * @dev Struct to represent amount of vested tokens claimable for a vesting schedule
+     * @param scheduleID ID of vesting schedule
+     * @param claimableTokens number of vesting tokens claimable as of the current time
+     */
+    struct TokenClaimInfo {
+        address asset;
+        uint256 scheduleID;
+        uint256 claimedAmount;
     }
 
     /* ========== Mappings ========== */
@@ -68,6 +91,9 @@ contract VestingManager is Ownable {
 
     //Provides number of total tokens locked for a specific asset
     mapping(address => uint256) public locked;
+
+    //Maps an address to token claim information associated with a specific address
+    mapping(address => TokenClaimInfo[]) public tokenClaimInfo;
 
     /* ========== Events ========== */
 
@@ -124,13 +150,84 @@ contract VestingManager is Ownable {
         for (uint256 i = 0; i < count; i++) {
             scheduleInfoList[i] = ScheduleInfo(
                 i,
+                schedules[account][i].startTime,
                 schedules[account][i].cliffTime,
                 schedules[account][i].endTime,
                 schedules[account][1].claimedAmount,
-                schedules[account][i].totalAmount
+                schedules[account][i].totalAmount,
+                schedules[account][i].asset
             );
         }
         return scheduleInfoList;
+    }
+
+    /**
+     * @notice Retrieves the number of claimable tokens per vesting schedule for a given account
+     * @dev This function utilizes the calcVestingDistribution function to determine claimable tokens based on the current block timestamp
+     * @param account The address of the account to retrieve claimable tokens for
+     * @return An array of structs, each containing the scheduleID and the corresponding number of claimable tokens
+     */
+    function retrieveClaimableTokens(
+        address account
+    ) public view returns (ClaimableInfo[] memory) {
+        ScheduleInfo[] memory scheduleInfoList = getScheduleInfo(account);
+
+        ClaimableInfo[] memory claimableInfoList = new ClaimableInfo[](
+            scheduleInfoList.length
+        );
+
+        for (uint256 i = 0; i < scheduleInfoList.length; i++) {
+            uint256 claimableTokens = calcVestingDistribution(
+                scheduleInfoList[i].totalAmount,
+                block.timestamp,
+                scheduleInfoList[i].startTime,
+                scheduleInfoList[i].endTime
+            );
+
+            // Cap the claimable tokens to the total amount allocated for vesting
+            claimableTokens = claimableTokens > scheduleInfoList[i].totalAmount
+                ? scheduleInfoList[i].totalAmount
+                : claimableTokens;
+
+            // Adjust the amount based on the amount the user has claimed
+            uint256 claimableAmount = claimableTokens >
+                scheduleInfoList[i].claimedAmount
+                ? claimableTokens - scheduleInfoList[i].claimedAmount
+                : 0;
+
+            claimableInfoList[i] = ClaimableInfo(i, claimableAmount);
+        }
+
+        return claimableInfoList;
+    }
+
+    /**
+     * @notice Internal function to record vestor's claiming activity.
+     * @param _vestor The address of the vestor.
+     * @param _asset The address of the vesting asset.
+     * @param _scheduleID The ID of the vesting schedule.
+     * @param _claimedAmount The total amount claimed.
+     */
+    function _setTotalClaimedData(
+        address _vestor,
+        address _asset,
+        uint256 _scheduleID,
+        uint256 _claimedAmount
+    ) internal {
+        tokenClaimInfo[_vestor].push(
+            TokenClaimInfo(_asset, _scheduleID, _claimedAmount)
+        );
+    }
+
+    /**
+     * @notice Retrieves token claim data for a vestor address.
+     * @param _address The vestor address for which to retrieve the token claim data.
+     * @return An array of TokenClaimInfo containing token claim data for the.
+     */
+    function getTokenClaimData(
+        address _address
+    ) public view returns (TokenClaimInfo[] memory) {
+        return tokenClaimInfo[_address];
     }
 
     /* ========== Vesting Functions ========== */
@@ -200,7 +297,11 @@ contract VestingManager is Ownable {
      * @notice Post-cliff period, users can claim their tokens
      * @param scheduleNumber which schedule the user is claiming against
      */
-    function claim(uint256 scheduleNumber, address vestor) external onlyOwner {
+    function claim(
+        uint256 scheduleNumber,
+        address vestor,
+        address asset
+    ) external onlyOwner {
         Schedule storage schedule = schedules[vestor][scheduleNumber];
         require(
             schedule.cliffTime <= block.timestamp,
@@ -221,11 +322,14 @@ contract VestingManager is Ownable {
         uint256 amountToTransfer = amount - schedule.claimedAmount;
         schedule.claimedAmount = amount; // set new claimed amount based off the curve
         locked[schedule.asset] = locked[schedule.asset] - amountToTransfer;
-        
+
         require(
             IERC20(schedule.asset).transfer(vestor, amountToTransfer),
             "Vesting: transfer failed"
         );
+
+        _setTotalClaimedData(vestor, asset, scheduleNumber, amount);
+
         emit vestingClaim(scheduleNumber, vestor, amountToTransfer, amount);
     }
 

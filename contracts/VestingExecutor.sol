@@ -240,6 +240,30 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         return current_token_lock_status;
     }
 
+    /**
+     * @notice Retrieves claimable token information for each vesting schedule of the given account
+     * @param vestorAddress The account address to retrieve the claimable token information for
+     * @return An array of structs containing the schedule ID and the corresponding number of claimable tokens
+     */
+    function retrieveClaimableTokens(
+        address vestorAddress
+    ) public view returns (VestingManager.ClaimableInfo[] memory) {
+        VestingManager.ClaimableInfo[] memory claimInformation = vestingManager
+            .retrieveClaimableTokens(vestorAddress);
+        return claimInformation;
+    }
+
+    /**
+     * @notice Fetches the data related to token claiming activity for a specific address
+     * @param _vestorAddress The address of the vestor
+     * @return Data related to asset claims by the vestor
+     */
+    function retrieveTokenClaimData(
+        address _vestorAddress
+    ) public view returns (VestingManager.TokenClaimInfo[] memory) {
+        return vestingManager.getTokenClaimData(_vestorAddress);
+    }
+
     /* ========== Transfer ERC20 Tokens ========== */
 
     /**
@@ -945,8 +969,12 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param scheduleId The ID of the vesting schedule
      * @param vestor The address of the vestor
      */
-    function claimTokens(uint256 scheduleId, address vestor) external {
-        vestingManager.claim(scheduleId, vestor);
+    function claimTokens(
+        uint256 scheduleId,
+        address vestor,
+        address vestingAsset
+    ) external {
+        vestingManager.claim(scheduleId, vestor, vestingAsset);
     }
 
     /**
