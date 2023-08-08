@@ -821,7 +821,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             emit vestingPurchaseTransactionComplete(
                 msg.sender,
                 vestingAmount,
-                sellTokenAmountCalc
+                requiredBuyAmount
             );
         }
     }
