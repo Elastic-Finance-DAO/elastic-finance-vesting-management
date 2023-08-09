@@ -19,6 +19,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  */
 
 contract VestingManager is Ownable {
+    /* ========== State Variables ========== */
+
+    address payable immutable TREASURY =
+        payable(0xf950a86013bAA227009771181a885E369e158da3);
+
     /* ========== Structs ========== */
 
     /**
@@ -153,7 +158,7 @@ contract VestingManager is Ownable {
                 schedules[account][i].startTime,
                 schedules[account][i].cliffTime,
                 schedules[account][i].endTime,
-                schedules[account][1].claimedAmount,
+                schedules[account][i].claimedAmount,
                 schedules[account][i].totalAmount,
                 schedules[account][i].asset
             );
@@ -323,12 +328,12 @@ contract VestingManager is Ownable {
         schedule.claimedAmount = amount; // set new claimed amount based off the curve
         locked[schedule.asset] = locked[schedule.asset] - amountToTransfer;
 
+        _setTotalClaimedData(vestor, asset, scheduleNumber, amount);
+
         require(
             IERC20(schedule.asset).transfer(vestor, amountToTransfer),
             "Vesting: transfer failed"
         );
-
-        _setTotalClaimedData(vestor, asset, scheduleNumber, amount);
 
         emit vestingClaim(scheduleNumber, vestor, amountToTransfer, amount);
     }
@@ -351,7 +356,7 @@ contract VestingManager is Ownable {
         schedule.totalAmount = 0;
         locked[schedule.asset] = locked[schedule.asset] - outstandingAmount;
         require(
-            IERC20(schedule.asset).transfer(owner(), outstandingAmount),
+            IERC20(schedule.asset).transfer(TREASURY, outstandingAmount),
             "Vesting: transfer failed"
         );
         emit vestingCancelled(scheduleId, account);

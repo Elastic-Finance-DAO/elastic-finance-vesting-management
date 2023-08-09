@@ -51,8 +51,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     struct VestingParams {
         address asset;
         bool isFixed;
-        uint256 cliffWeeks;
-        uint256 vestingWeeks;
+        uint8 cliffWeeks;
+        uint8 vestingWeeks;
         uint256 startTime;
     }
 
@@ -68,10 +68,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
 
     struct ValidVestingParams {
-        uint256 purchaseCliffWeeks;
-        uint256 purchaseVestingWeeks;
-        uint256 swapCliffWeeks;
-        uint256 swapVestingWeeks;
+        uint8 purchaseCliffWeeks;
+        uint8 purchaseVestingWeeks;
+        uint8 swapCliffWeeks;
+        uint8 swapVestingWeeks;
     }
 
     ValidVestingParams public validVestingParams;
@@ -274,17 +274,17 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param to The recipient's address of the tokens.
      * @param amount The amount of tokens to be transferred.
      */
-    function _transferERC20(IERC20 token, address to, uint256 amount) internal {
-        uint256 erc20balance = token.balanceOf(address(this));
-        require(amount <= erc20balance, "Balance too low to transfer token");
-        token.transfer(to, amount);
+
+    function transferERC20(IERC20 token, address to, uint256 amount) public {
+        require(
+            msg.sender == owner() || msg.sender == address(this),
+            "Caller must be owner or contract."
+        );
+
+        _transferERC20(token, to, amount);
     }
 
-    function transferERC20(
-        IERC20 token,
-        address to,
-        uint256 amount
-    ) external onlyOwner {
+    function _transferERC20(IERC20 token, address to, uint256 amount) internal {
         uint256 erc20balance = token.balanceOf(address(this));
         require(amount <= erc20balance, "Balance too low to transfer token");
         token.transfer(to, amount);
@@ -564,10 +564,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
 
     function setValidVestingParams(
-        uint256 _purchaseCliffWeeks,
-        uint256 _purchaseVestingWeeks,
-        uint256 _swapCliffWeeks,
-        uint256 _swapVestingWeeks
+        uint8 _purchaseCliffWeeks,
+        uint8 _purchaseVestingWeeks,
+        uint8 _swapCliffWeeks,
+        uint8 _swapVestingWeeks
     ) public onlyOwner {
         validVestingParams.purchaseCliffWeeks = _purchaseCliffWeeks;
         validVestingParams.purchaseVestingWeeks = _purchaseVestingWeeks;
