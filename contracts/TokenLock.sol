@@ -2,14 +2,39 @@
 
 pragma solidity 0.8.9;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+
 /**
  * Token Lock contract holds tokens swapped by the Vesting Executor for vested tokens. 
-Contract has no owner and no withdrawal functions. Tokens deposited into this contract are 
-locked.
+
  */
 
+contract TokenLock is Ownable {
+    /* ========== Constructor ========== */
+    // Owner will be set to VestingExecutor contract
+    constructor(address initialOwner) {
+        transferOwnership(initialOwner);
+    }
 
-contract TokenLock  {
-    
+    /* ========== Transfer ERC20 Tokens ========== */
 
+    /**
+     * @notice Transfers a specific amount of ERC20 tokens to an address.
+     * @dev The token transfer is executed using the input token's transfer function. It checks there are enough tokens on
+     * the contract's balance before performing the transfer.
+     * @param token The address of the ERC20 token contract that we want to make the transfer with.
+     * @param to The recipient's address of the tokens.
+     * @param amount The amount of tokens to be transferred.
+     */
+
+    function transferLockedTokens(
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        uint256 erc20balance = token.balanceOf(address(this));
+        require(amount <= erc20balance, "Balance too low to transfer token");
+        token.transfer(to, amount);
+    }
 }

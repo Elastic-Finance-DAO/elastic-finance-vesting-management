@@ -51,8 +51,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     struct VestingParams {
         address asset;
         bool isFixed;
-        uint8 cliffWeeks;
-        uint8 vestingWeeks;
+        uint256 cliffWeeks;
+        uint256 vestingWeeks;
         uint256 startTime;
     }
 
@@ -68,10 +68,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
 
     struct ValidVestingParams {
-        uint8 purchaseCliffWeeks;
-        uint8 purchaseVestingWeeks;
-        uint8 swapCliffWeeks;
-        uint8 swapVestingWeeks;
+        uint256 purchaseCliffWeeks;
+        uint256 purchaseVestingWeeks;
+        uint256 swapCliffWeeks;
+        uint256 swapVestingWeeks;
     }
 
     ValidVestingParams public validVestingParams;
@@ -122,8 +122,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
     struct AuthorizedSwapAddresses {
         address whitelistaddress;
-        string whitelistaddressstatus;
-        bool isSet; // additional flag
+        bool isSet;
     }
 
     mapping(address => AuthorizedSwapAddresses) public authorizedSwapAddresses;
@@ -157,9 +156,9 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      Constructor also sets the default purchase tokens: DAI, USDC and USDT.
      */
     constructor() {
-        // Deploy a new instance of VestingManager, setting VestingExecutor (this contract) as the owner
+        // Deploy a new instance of VestingManager, and TokenLock setting VestingExecutor (this contract) as the owner
         vestingManager = new VestingManager(address(this));
-        tokenLock = new TokenLock();
+        tokenLock = new TokenLock(address(this));
 
         // Add initial valid purchase tokens to list (DAI, USDC, USDT)
         purchaseTokens[
@@ -214,33 +213,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Fetches the current vesting status of the contract.
-     * @dev Uses the contract's stored `current_vesting_status` state variable.
-     * @return The current vesting status of the contract.
-     */
-    function getCurrentVestingStatus() public view returns (vestingStatus) {
-        return current_vesting_status;
-    }
-
-    /**
-     * @notice Fetches the current swapping status of the contract.
-     * @dev Uses the contract's stored `current_swapping_status` state variable.
-     * @return The current swapping status of the contract.
-     */
-    function getCurrentSwappingStatus() public view returns (swappingStatus) {
-        return current_swapping_status;
-    }
-
-    /**
-     * @notice Fetches the current token locking status of the contract.
-     * @dev Uses the contract's stored `current_swapping_status` state variable.
-     * @return The current swapping status of the contract.
-     */
-    function getCurrentTokenLockStatus() public view returns (tokenLockStatus) {
-        return current_token_lock_status;
-    }
-
-    /**
      * @notice Retrieves claimable token information for each vesting schedule of the given account
      * @param vestorAddress The account address to retrieve the claimable token information for
      * @return An array of structs containing the schedule ID and the corresponding number of claimable tokens
@@ -264,6 +236,54 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         return vestingManager.getTokenClaimData(_vestorAddress);
     }
 
+    /* ========== Modifiers ========== */
+
+    /**
+     * @notice Modifier to only allow certain function calls when vesting is active
+     * @dev Reverts if the current vesting status is not active. Used to restrict function calling
+     */
+    modifier whenVestingActive() {
+        require(
+            current_vesting_status == vestingStatus.vestingActive,
+            "Vesting not active"
+        );
+        _;
+    }
+
+    /**
+     * @notice Modifier to enforce that swapping is active
+     * @dev Reverts if the current swapping status is not active.
+     */
+    modifier whenSwappingActive() {
+        require(
+            current_swapping_status == swappingStatus.swappingActive,
+            "Swapping not active"
+        );
+        _;
+    }
+
+    /**
+     * @notice Modifier to only allow certain function calls when vesting is active
+     * @dev Reverts if the current vesting status is not active. Used to restrict function calling
+     */
+    modifier whenStandardVestingActive() {
+        require(
+            current_standard_vesting_status ==
+                standardVestingStatus.standardVestingActive,
+            "Standard vesting not active"
+        );
+        _;
+    }
+
+    /**
+     * @notice Modifier to restrict certain functions to multisig only calls
+     * @dev Reverts if the caller is not the treasury.
+     */
+    modifier multiSigOnly() {
+        require(msg.sender == TREASURY, "Multisig not caller");
+        _;
+    }
+
     /* ========== Transfer ERC20 Tokens ========== */
 
     /**
@@ -275,12 +295,11 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      * @param amount The amount of tokens to be transferred.
      */
 
-    function transferERC20(IERC20 token, address to, uint256 amount) public {
-        require(
-            msg.sender == owner() || msg.sender == address(this),
-            "Caller must be owner or contract."
-        );
-
+    function transferERC20(
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) public onlyOwner {
         _transferERC20(token, to, amount);
     }
 
@@ -288,6 +307,22 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         uint256 erc20balance = token.balanceOf(address(this));
         require(amount <= erc20balance, "Balance too low to transfer token");
         token.transfer(to, amount);
+    }
+
+    /**
+     * @notice Transfers a specific amount of ERC20 tokens from the TokenLock contract to an address.
+     * @dev The token transfer is executed using the input token's transfer function. It checks there are enough tokens on
+     * the contract's balance before performing the transfer.
+     * @param token The address of the ERC20 token contract that we want to make the transfer with.
+     * @param to The recipient's address of the tokens.
+     * @param amount The amount of tokens to be transferred.
+     */
+    function transferLockedTokens(
+        IERC20 token,
+        address to,
+        uint256 amount
+    ) external onlyOwner {
+        tokenLock.transferLockedTokens(token, to, amount);
     }
 
     /* ========== Manage Vesting/Swap/Token Locking/Whitelist Status ========== */
@@ -308,18 +343,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
     function setVestingStatus(uint256 value) public onlyOwner {
         current_vesting_status = vestingStatus(value);
-    }
-
-    /**
-     * @notice Modifier to only allow certain function calls when vesting is active
-     * @dev Reverts if the current vesting status is not active. Used to restrict function calling
-     */
-    modifier whenVestingActive() {
-        require(
-            current_vesting_status == vestingStatus.vestingActive,
-            "Vesting not active"
-        );
-        _;
     }
 
     //Whitelist status options
@@ -360,18 +383,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         current_swapping_status = swappingStatus(value);
     }
 
-    /**
-     * @notice Modifier to enforce that swapping is active
-     * @dev Reverts if the current swapping status is not active.
-     */
-    modifier whenSwappingActive() {
-        require(
-            current_swapping_status == swappingStatus.swappingActive,
-            "Swapping not active"
-        );
-        _;
-    }
-
     //Standard Vesting status options
     enum standardVestingStatus {
         standardVestingActive, //0
@@ -389,19 +400,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
     function setStandardVestingStatus(uint256 value) public onlyOwner {
         current_standard_vesting_status = standardVestingStatus(value);
-    }
-
-    /**
-     * @notice Modifier to only allow certain function calls when vesting is active
-     * @dev Reverts if the current vesting status is not active. Used to restrict function calling
-     */
-    modifier whenStandardVestingActive() {
-        require(
-            current_standard_vesting_status ==
-                standardVestingStatus.standardVestingActive,
-            "Standard vesting not active"
-        );
-        _;
     }
 
     //Token lock options (whether swapped tokens are locked in the Token Lock contract)
@@ -564,10 +562,10 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
      */
 
     function setValidVestingParams(
-        uint8 _purchaseCliffWeeks,
-        uint8 _purchaseVestingWeeks,
-        uint8 _swapCliffWeeks,
-        uint8 _swapVestingWeeks
+        uint256 _purchaseCliffWeeks,
+        uint256 _purchaseVestingWeeks,
+        uint256 _swapCliffWeeks,
+        uint256 _swapVestingWeeks
     ) public onlyOwner {
         validVestingParams.purchaseCliffWeeks = _purchaseCliffWeeks;
         validVestingParams.purchaseVestingWeeks = _purchaseVestingWeeks;
@@ -626,7 +624,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             require(_addresses[i] != address(0), "Null address not allowed");
             authorizedSwapAddresses[_addresses[i]] = AuthorizedSwapAddresses(
                 _addresses[i],
-                "Yes",
                 true
             );
         }
@@ -660,15 +657,6 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     }
 
     /* ========== Purchase and Vesting Functions ========== */
-
-    /**
-     * @notice Modifier to restrict certain functions to multisig only calls
-     * @dev Reverts if the caller is not the treasury.
-     */
-    modifier multiSigOnly() {
-        require(msg.sender == TREASURY, "Multisig not caller");
-        _;
-    }
 
     /**
      * @notice Adjust the amount from the scale of the source decimal to the destination decimal
@@ -838,13 +826,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         uint256 amount,
         VestingParams memory _vestingParams
     ) public whenStandardVestingActive onlyOwner {
-        // Ensure cliff is shorter than vesting (vesting includes the cliff duration)
-        require(
-            _vestingParams.vestingWeeks > 0 &&
-                _vestingParams.vestingWeeks >= _vestingParams.cliffWeeks,
-            "Vesting: invalid vesting params set"
-        );
-
+        //Ensure vesting start time is valid
         require(
             _vestingParams.startTime >= block.timestamp - 60 minutes,
             "Invalid start time set"
@@ -974,6 +956,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         address vestor,
         address vestingAsset
     ) external {
+        require(vestor == msg.sender, "Claimer is not vestor");
+
         vestingManager.claim(scheduleId, vestor, vestingAsset);
     }
 
