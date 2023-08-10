@@ -36,6 +36,11 @@ def vesting_manager(main):
     vesting_manager_address = main.vestingManager()
     return vesting_manager_address
 
+@pytest.fixture(scope="module")
+def tokenlock(main):
+    vesting_executor = main
+    token_lock_address = main.tokenLock()
+    return token_lock_address 
 
 @pytest.fixture(scope="function")
 def standard_vesting_parameters():
@@ -111,8 +116,7 @@ def isolation(fn_isolation):
 ##### ----- Tests   ----- #####
 ####################################################################################
 
-##### ----- Asset Deposits and Balances  ----- #####
-
+##### ----- Asset Deposits, Balances and withdrawals  ----- #####
 
 # Contract does not accept ETH deposits
 def test_transfer_eth_into_vesting_manager_contract(vesting_manager, capsys):
@@ -128,6 +132,45 @@ def test_transfer_eth_into_vesting_manager_contract(vesting_manager, capsys):
     with capsys.disabled():
         print("Contract does not accept ETH, so it should fail")
 
+#Test token withdrawal from token lock contract 
+def test_token_lock_contract_withdrawal(tokenlock, main, capsys):
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    token_lock_address = tokenlock
+
+    eefi_approval = 500000 * 10**18
+
+    transfer_amount = 5000 * 10**18
+
+    eefi_contract.transfer(
+        token_lock_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(token_lock_address)
+
+    transfer_amount = 5000 * 10**18
+
+    assert (
+        contract_eefi_balance == transfer_amount
+    ), "tokens not successfully transfered"
+    
+    withdraw_eefi_balance = vesting_executor.transferLockedTokens(eefi_contract.address, accounts[1], transfer_amount, {"from": accounts[1]})
+    
+    account_eefi_balance = eefi_contract.balanceOf(accounts[1])
+    
+    assert (
+        account_eefi_balance == transfer_amount
+    ), "tokens not successfully transfered"
+
+    with capsys.disabled():
+        print("Account balance should be 5000 EEFI")
+        print(withdraw_eefi_balance.info())
+
+##### ----- Contract Deployment and Parameters Setting  ----- #####
 
 # Ensure valid vesting parameters are set
 def test_valid_vesting_parameters_setting(main, capsys):
@@ -150,9 +193,6 @@ def test_valid_vesting_parameters_setting(main, capsys):
 
     with capsys.disabled():
         print(vesting_executor.validVestingParams())
-
-
-##### ----- Contract Deployment and Parametes Setting  ----- #####
 
 # # Ensure Vesting Manger contract is deployed properly can can accept vesting asset
 def test_check_balance_of_vesting_manager_eefi(vesting_manager, main, capsys):
@@ -453,7 +493,6 @@ def test_vesting_token_withdrawal(vesting_manager, main, capsys):
 
 # ##### ----- Access Control ----- #####
 
-
 # # Non-multisig address can't withdraw unlocked vested assets
 def test_vesting_token_withdrawal_no_multisig(vesting_manager, main, capsys):
     # # Contracts #
@@ -699,9 +738,39 @@ def test_vesting_claim_not_vestor(
 
     with capsys.disabled():
         print("Claim should fail because msg.sender is not vestor")
+
+#Test token withdrawal from token lock contract 
+def test_token_lock_contract_withdrawal_not_owner(tokenlock, main, capsys):
+    vesting_executor = main
+
+    eefi_contract = Contract("0x92915c346287DdFbcEc8f86c8EB52280eD05b3A3")
+
+    eefi_whale = accounts.at("0xf950a86013bAA227009771181a885E369e158da3", force=True)
+
+    token_lock_address = tokenlock
+
+    eefi_approval = 500000 * 10**18
+
+    transfer_amount = 5000 * 10**18
+
+    eefi_contract.transfer(
+        token_lock_address, transfer_amount, {"from": eefi_whale}
+    )
+
+    contract_eefi_balance = eefi_contract.balanceOf(token_lock_address)
+
+    transfer_amount = 5000 * 10**18
+
+    assert (
+        contract_eefi_balance == transfer_amount
+    ), "tokens not successfully transfered"
+    
+    with brownie.reverts('Ownable: caller is not the owner'):
+        withdraw_eefi_balance = vesting_executor.transferLockedTokens(eefi_contract.address, accounts[1], transfer_amount, {"from": accounts[0]})
+    
+    with capsys.disabled():
+        print("Withdrawal should fail because sender is not owner")
        
-
-
 # #### ----- Purchase Calculation Checks  ----- #####
 
 def test_purchase_vesting_calc_usdc(

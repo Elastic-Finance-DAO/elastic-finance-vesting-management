@@ -130,14 +130,17 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     /* ========== Events ========== */
 
     event vestingTransactionComplete(address vester, uint256 vestedAssetAmount);
-
     event vestingPurchaseTransactionComplete(
         address indexed vester,
         uint256 vestedAssetAmount,
         uint256 amountTransferred
     );
-
     event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
+    event tokenLockWithdrawal(
+        IERC20 token,
+        address to,
+        uint256 withdrawalAmount
+    );
     event addressesAddedToWhiteList(address[] addresses);
     event bonusVestingTokenTransfered(
         address recipient,
@@ -323,6 +326,8 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
         uint256 amount
     ) external onlyOwner {
         tokenLock.transferLockedTokens(token, to, amount);
+
+        emit tokenLockWithdrawal(token, to, amount);
     }
 
     /* ========== Manage Vesting/Swap/Token Locking/Whitelist Status ========== */
