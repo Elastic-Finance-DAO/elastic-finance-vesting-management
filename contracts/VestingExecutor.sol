@@ -2,6 +2,9 @@
 
 pragma solidity 0.8.9;
 
+/// @title: Vesting Executor
+/// @author: davoice321
+
 import "./VestingManager.sol";
 import "./TokenLock.sol";
 
@@ -133,6 +136,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
     event vestingPurchaseTransactionComplete(
         address indexed vester,
         uint256 vestedAssetAmount,
+        address purchaseToken,
         uint256 amountTransferred
     );
     event vestingTokenWithdrawal(address token, uint256 withdrawalAmount);
@@ -804,6 +808,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             emit vestingPurchaseTransactionComplete(
                 msg.sender,
                 vestingAmount,
+                _exchangeToken,
                 sellTokenAmountCalc
             );
         } else {
@@ -814,6 +819,7 @@ contract VestingExecutor is Ownable, ReentrancyGuard {
             emit vestingPurchaseTransactionComplete(
                 msg.sender,
                 vestingAmount,
+                _exchangeToken,
                 requiredBuyAmount
             );
         }
